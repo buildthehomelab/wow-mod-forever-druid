@@ -77,6 +77,17 @@ ForeverDruid.FrenziedRegeneration.Enable = 1
 ForeverDruid.FrenziedRegeneration.HealthPercentPerRage = 1.0
 
 #
+#    ForeverDruid.Lacerate.ScaleWithLevel
+#        Description: The module moves Lacerate (rank 1) from level 66 to 42 on the trainers, but
+#                     its damage (31 on the hit and 31 per bleed tick, per stack) was set for 66.
+#                     With 1, it does 20 at level 42, growing to the usual 31 at 66. With 0, it
+#                     does 31 at every level. The optional client patch's tooltip assumes 1.
+#        Default:     1
+#
+
+ForeverDruid.Lacerate.ScaleWithLevel = 1
+
+#
 #    ForeverDruid.Pulverize.Enable
 #        Description: Druids learn Pulverize, Cataclysm's bear finisher: a melee attack that uses
 #                     up the Lacerate stacks on the target for extra damage and a crit buff. With

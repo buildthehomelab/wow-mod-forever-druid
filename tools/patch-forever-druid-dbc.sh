@@ -6,6 +6,7 @@
 # - Swipe (Bear): the new rage cost. Without it the client still thinks Swipe costs 20 rage: it
 #   shows that in the tooltip and won't let you press Swipe with less rage.
 # - Frenzied Regeneration: the new rate, for the tooltip.
+# - Lacerate rank 1: damage that scales with level from 42 to 66, for the tooltip.
 # - Pulverize: turns "Test Maul" (24042) into Pulverize (name, icon, cost, global cooldown,
 #   tooltip) in the Feral Combat tab, and makes its crit buff (742) show on the buff bar.
 #
@@ -19,7 +20,7 @@
 set -euo pipefail
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
-    sed -n '12,17p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '13,18p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
 fi
 
@@ -35,6 +36,12 @@ SWIPE_RAGE_COST = 0                      # ForeverDruid.Swipe.RageCost
 
 SPELL_FRENZIED_REGENERATION = 22842
 HEALTH_PERCENT_PER_RAGE = 1.0            # ForeverDruid.FrenziedRegeneration.HealthPercentPerRage
+
+SPELL_LACERATE_R1 = 33745
+LACERATE_BASE_LEVEL = 42                 # damage LACERATE_BASE_DAMAGE at this level,
+LACERATE_MAX_LEVEL = 66                  # growing LACERATE_DAMAGE_PER_LEVEL a level up to here
+LACERATE_BASE_DAMAGE = 20
+LACERATE_DAMAGE_PER_LEVEL = 0.46
 
 SPELL_PULVERIZE = 24042                  # "Test Maul" in the stock client
 SPELL_PULVERIZE_BUFF = 742               # "Pulverize", an unused NPC aura
@@ -104,16 +111,25 @@ def int32(value):
     return value & 0xFFFFFFFF
 
 
+def float32(value):
+    return struct.unpack("<I", struct.pack("<f", value))[0]
+
+
 # --- Spell.dbc -------------------------------------------------------------------------------
 SPELL_FIELDS = 234
 ATTRIBUTES = 4                # m_attributes
 RECOVERY_TIME = 29            # m_recoveryTime
 PROC_FLAGS = 34               # m_procTypeMask
 PROC_CHANCE = 35              # m_procChance
+MAX_LEVEL = 37                # m_maxLevel
+BASE_LEVEL = 38               # m_baseLevel
+SPELL_LEVEL = 39              # m_spellLevel
 DURATION = 40                 # m_durationIndex
 POWER_TYPE = 41               # m_powerType
 MANA_COST = 42                # m_manaCost (rage is stored ten times over: 20 rage is 200)
 EFFECT_0 = 71                 # m_effect[0]
+EFFECT_POINTS_PER_LEVEL_0 = 77 # m_effectRealPointsPerLevel[0] (float)
+EFFECT_POINTS_PER_LEVEL_1 = 78 # m_effectRealPointsPerLevel[1] (float)
 EFFECT_BASE_POINTS_0 = 80     # m_effectBasePoints[0]: the tooltip shows it plus 1
 EFFECT_BASE_POINTS_1 = 81     # m_effectBasePoints[1]
 EFFECT_AURA_0 = 95            # m_effectAura[0]
@@ -148,6 +164,16 @@ row = spell(SPELL_FRENZIED_REGENERATION)
 tenths = max(0, round(HEALTH_PERCENT_PER_RAGE * 10))
 row[EFFECT_BASE_POINTS_1] = int32(tenths - 1)
 print(f"  Frenzied Regeneration: {tenths / 10:.1f}% of max health per rage")
+
+row = spell(SPELL_LACERATE_R1)
+row[MAX_LEVEL] = LACERATE_MAX_LEVEL
+row[BASE_LEVEL] = LACERATE_BASE_LEVEL
+row[SPELL_LEVEL] = LACERATE_BASE_LEVEL
+for field in (EFFECT_BASE_POINTS_0, EFFECT_BASE_POINTS_1):
+    row[field] = int32(LACERATE_BASE_DAMAGE - 1)
+for field in (EFFECT_POINTS_PER_LEVEL_0, EFFECT_POINTS_PER_LEVEL_1):
+    row[field] = float32(LACERATE_DAMAGE_PER_LEVEL)
+print(f"  Lacerate rank 1: {LACERATE_BASE_DAMAGE} damage at {LACERATE_BASE_LEVEL}, scaling to {LACERATE_MAX_LEVEL}")
 
 row = spell(SPELL_PULVERIZE)
 if row[POWER_TYPE] != POWER_RAGE:

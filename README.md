@@ -65,6 +65,12 @@ like the other level 42 druid spells. Ranks 2 and 3 stay at 73 and 80. This is a
 not a setting: if you set a different `Pulverize.Level`, Lacerate still comes at 42. The trainer
 window gets the level from the server, so it needs no client patch.
 
+Lacerate rank 1's damage (31 on the hit and 31 per bleed tick, per stack) was set for level 66,
+which is about 1.5 times too strong at 42. So it now scales with level: 20 at 42, growing about
+half a point a level to the usual 31 at 66. From 66 on nothing changes, and ranks 2 and 3 are
+untouched. Attack power still adds to it as before. Without the client patch the tooltip always
+says 31.
+
 The numbers differ from Cataclysm on purpose: WotLK's Lacerate stacks to 5 (Cataclysm's stacked
 to 3), so crit per stack is 2% instead of 3%, and the per-stack damage scales with attack power
 so it works at every level.
@@ -98,6 +104,7 @@ are added to the world database on the next start.
 | `ForeverDruid.BearDodgeRage.Amount` | `5` | Rage per dodge. |
 | `ForeverDruid.FrenziedRegeneration.Enable` | `1` | Change Frenzied Regeneration's rate. `0` puts it back to 0.3%. |
 | `ForeverDruid.FrenziedRegeneration.HealthPercentPerRage` | `1.0` | Share of max health per point of rage, in steps of 0.1. |
+| `ForeverDruid.Lacerate.ScaleWithLevel` | `1` | Lacerate rank 1 damage scales from 20 at 42 to 31 at 66. `0` for a flat 31. |
 | `ForeverDruid.Pulverize.Enable` | `1` | Teach Pulverize. `0` takes it away at the next login. |
 | `ForeverDruid.Pulverize.Level` | `42` | Level at which druids learn it. |
 | `ForeverDruid.Pulverize.RageCost` | `15` | Rage cost. |
@@ -123,8 +130,8 @@ General tab, and doesn't show the crit buff on the buff bar.
 
 `tools/patch-forever-druid-dbc.sh` changes two client files:
 
-- **Spell.dbc:** the rage cost of all 8 Swipe (Bear) ranks, Frenzied Regeneration's rate, and
-  Test Maul (24042) becomes Pulverize (name, `ability_smash` icon, cost, global cooldown,
+- **Spell.dbc:** the rage cost of all 8 Swipe (Bear) ranks, Frenzied Regeneration's rate,
+  Lacerate rank 1's level scaling, and Test Maul (24042) becomes Pulverize (name, `ability_smash` icon, cost, global cooldown,
   tooltip). The unused aura 742 becomes a visible 10 second buff with its own tooltip.
 - **SkillLineAbility.dbc:** adds Pulverize to the Feral Combat tab of the spellbook.
 

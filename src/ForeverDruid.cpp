@@ -11,7 +11,8 @@
  * - Pulverize, Cataclysm's bear finisher, learned at level 42: 15 rage, 60% weapon damage plus a
  *   bonus for each Lacerate stack on the target. It uses up the stacks and gives 2% melee crit
  *   per stack for 10 seconds. Lacerate moves from level 66 to 42 on the trainers (SQL), as in
- *   WoW Forever, so the two arrive together.
+ *   WoW Forever, so the two arrive together, and its rank 1 damage scales with level from 42 to
+ *   66 so it isn't too strong early.
  *
  * The rage costs and the Frenzied Regeneration rate are changed in the server's copy of the spell
  * data. The client reads rage costs from its own Spell.dbc and won't let you press an ability with
@@ -53,7 +54,16 @@ namespace
 
     constexpr uint32 SPELL_BEAR_FORM      = 5487;
     constexpr uint32 SPELL_DIRE_BEAR_FORM = 9634;
-    constexpr uint32 SPELL_LACERATE_R1    = 33745;
+    constexpr uint32 SPELL_LACERATE_R1    = 33745; // must match tools/patch-forever-druid-dbc.sh
+
+    // Lacerate rank 1's scaling: its hit and each bleed tick do LACERATE_BASE_DAMAGE at
+    // LACERATE_BASE_LEVEL, growing LACERATE_DAMAGE_PER_LEVEL a level up to the game data's 31 at
+    // LACERATE_MAX_LEVEL (66, where it's normally trained). Must match
+    // tools/patch-forever-druid-dbc.sh.
+    constexpr uint32 LACERATE_BASE_LEVEL       = 42;
+    constexpr uint32 LACERATE_MAX_LEVEL        = 66;
+    constexpr int32  LACERATE_BASE_DAMAGE      = 20;
+    constexpr float  LACERATE_DAMAGE_PER_LEVEL = 0.46f;
 
     // Must match tools/patch-forever-druid-dbc.sh.
     constexpr uint32 SPELL_FRENZIED_REGENERATION = 22842;
@@ -76,6 +86,7 @@ namespace
         uint32 dodgeRage = 5;
         bool frenziedRegenerationEnabled = true;
         float frenziedRegenerationHealthPercent = 1.0f;
+        bool lacerateScaling = true;
         bool pulverizeEnabled = true;
         uint8 pulverizeLevel = 42;
         uint32 pulverizeRageCost = 15;
@@ -168,11 +179,56 @@ namespace
         }
     }
 
+    // Lacerate rank 1 as the game data has it, read before the module changes it.
+    struct LacerateData
+    {
+        uint32 maxLevel;
+        uint32 baseLevel;
+        uint32 spellLevel;
+        std::array<int32, 2> basePoints;
+        std::array<float, 2> pointsPerLevel;
+    };
+
+    std::optional<LacerateData> stockLacerate;
+
+    // Druid trainers teach Lacerate rank 1 at 42 instead of 66 (see the SQL), but its flat damage
+    // (31 on the hit and 31 per bleed tick, per stack) was set for 66. Make both effects scale
+    // with the druid's level instead, the way the game data does for spells like pet abilities:
+    // the core adds the points per level for each level above the spell level, up to the max
+    // level. From 66 on it's the stock 31. The value is the base points plus 1 (the die has one
+    // side).
+    void ApplyLacerateScaling()
+    {
+        SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(SPELL_LACERATE_R1));
+        if (!spellInfo)
+            return;
+
+        if (!stockLacerate)
+        {
+            stockLacerate = LacerateData{ spellInfo->MaxLevel, spellInfo->BaseLevel, spellInfo->SpellLevel,
+                { spellInfo->Effects[EFFECT_0].BasePoints, spellInfo->Effects[EFFECT_1].BasePoints },
+                { spellInfo->Effects[EFFECT_0].RealPointsPerLevel, spellInfo->Effects[EFFECT_1].RealPointsPerLevel } };
+        }
+
+        bool const scale = config.lacerateScaling;
+        spellInfo->MaxLevel   = scale ? LACERATE_MAX_LEVEL : stockLacerate->maxLevel;
+        spellInfo->BaseLevel  = scale ? LACERATE_BASE_LEVEL : stockLacerate->baseLevel;
+        spellInfo->SpellLevel = scale ? LACERATE_BASE_LEVEL : stockLacerate->spellLevel;
+
+        for (uint8 i = EFFECT_0; i <= EFFECT_1; ++i)
+        {
+            SpellEffectInfo& effect = spellInfo->Effects[i];
+            effect.BasePoints         = scale ? LACERATE_BASE_DAMAGE - 1 : stockLacerate->basePoints[i];
+            effect.RealPointsPerLevel = scale ? LACERATE_DAMAGE_PER_LEVEL : stockLacerate->pointsPerLevel[i];
+        }
+    }
+
     // Runs once the spells are loaded, and again when the config is reloaded.
     void ApplySpellChanges()
     {
         ApplySwipeRageCost();
         ApplyFrenziedRegenerationRate();
+        ApplyLacerateScaling();
         ApplyPulverizeSpellData();
     }
 
@@ -333,6 +389,8 @@ public:
 
         config.frenziedRegenerationEnabled       = sConfigMgr->GetOption<bool>("ForeverDruid.FrenziedRegeneration.Enable", true);
         config.frenziedRegenerationHealthPercent = sConfigMgr->GetOption<float>("ForeverDruid.FrenziedRegeneration.HealthPercentPerRage", 1.0f);
+
+        config.lacerateScaling = sConfigMgr->GetOption<bool>("ForeverDruid.Lacerate.ScaleWithLevel", true);
 
         config.pulverizeEnabled             = sConfigMgr->GetOption<bool>("ForeverDruid.Pulverize.Enable", true);
         config.pulverizeLevel               = uint8(sConfigMgr->GetOption<uint32>("ForeverDruid.Pulverize.Level", 42));
