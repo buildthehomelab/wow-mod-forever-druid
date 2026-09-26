@@ -10,7 +10,8 @@
  *   WoW Forever, so a full 100 rage heals the druid to full over its 10 seconds.
  * - Pulverize, Cataclysm's bear finisher, learned at level 42: 15 rage, 60% weapon damage plus a
  *   bonus for each Lacerate stack on the target. It uses up the stacks and gives 2% melee crit
- *   per stack for 10 seconds.
+ *   per stack for 10 seconds. Lacerate moves from level 66 to 42 on the trainers (SQL), as in
+ *   WoW Forever, so the two arrive together.
  *
  * The rage costs and the Frenzied Regeneration rate are changed in the server's copy of the spell
  * data. The client reads rage costs from its own Spell.dbc and won't let you press an ability with

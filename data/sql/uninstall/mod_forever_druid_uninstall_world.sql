@@ -8,9 +8,11 @@
 -- the database to undo for them. Run mod_forever_druid_uninstall_characters.sql too.
 --
 -- Removes the spell_proc rows and script binding on Bear Form (5487) and Dire Bear Form (9634),
--- and the Pulverize script bindings on 24042 and 742. Stock AzerothCore has no spell_proc rows or
+-- and the Pulverize script bindings on 24042 and 742, and puts Lacerate (rank 1) back at level 66
+-- for 6g 60s on the druid trainers. Stock AzerothCore has no spell_proc rows or
 -- scripts for any of them except Bear Form's own spell_dru_feral_swiftness, which stays.
 -- Idempotent: safe to run again.
 
 DELETE FROM `spell_proc` WHERE `SpellId` IN (5487, 9634);
+UPDATE `trainer_spell` SET `ReqLevel` = 66, `MoneyCost` = 66000 WHERE `SpellId` = 33745;
 DELETE FROM `spell_script_names` WHERE `ScriptName` IN ('spell_dru_forever_bear_dodge_rage', 'spell_dru_forever_pulverize', 'spell_dru_forever_pulverize_buff');

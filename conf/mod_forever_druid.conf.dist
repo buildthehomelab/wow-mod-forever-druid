@@ -88,8 +88,9 @@ ForeverDruid.Pulverize.Enable = 1
 
 #
 #    ForeverDruid.Pulverize.Level
-#        Description: Level at which druids learn Pulverize. Lacerate is trained at 66, so until
-#                     then Pulverize is just a weapon hit.
+#        Description: Level at which druids learn Pulverize. The module also moves Lacerate to
+#                     level 42 on the trainers (in the database, not a setting), so both arrive
+#                     together.
 #        Default:     42
 #
 

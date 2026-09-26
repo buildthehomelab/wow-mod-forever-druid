@@ -6,7 +6,8 @@ bear tanking to a 3.3.5 server:
 - **Swipe (Bear) costs no rage**, at every rank, and you learn it together with Bear Form.
 - **Bear Form and Dire Bear Form give 5 rage every time you dodge.**
 - **Frenzied Regeneration turns each point of rage into 1% of max health**, up from 0.3%.
-- **Pulverize**, Cataclysm's bear finisher, at level 42.
+- **Pulverize**, Cataclysm's bear finisher, at level 42, and **Lacerate moves to level 42** to
+  go with it.
 
 Everything works on the server alone, but the optional client patch (see below) is strongly
 recommended: without it the client won't let you press Swipe with less than 20 rage, and
@@ -57,8 +58,12 @@ Cataclysm's Pulverize, learned at level 42:
   A new Pulverize replaces the buff.
 - A miss, dodge or parry keeps the stacks.
 
-The usual rotation is to build Lacerate to 5 stacks, Pulverize, and start again. Lacerate is
-trained at 66, so from 42 to 65 Pulverize is just a cheap 60% weapon hit.
+The usual rotation is to build Lacerate to 5 stacks, Pulverize, and start again.
+
+Druid trainers teach Lacerate (rank 1) at level 42 instead of 66, as in WoW Forever, for 1g 60s
+like the other level 42 druid spells. Ranks 2 and 3 stay at 73 and 80. This is a database change,
+not a setting: if you set a different `Pulverize.Level`, Lacerate still comes at 42. The trainer
+window gets the level from the server, so it needs no client patch.
 
 The numbers differ from Cataclysm on purpose: WotLK's Lacerate stacks to 5 (Cataclysm's stacked
 to 3), so crit per stack is 2% instead of 3%, and the per-stack damage scales with attack power
@@ -146,7 +151,8 @@ Players who get the new patch should delete their `Cache/` folder.
   both uninstall files:
 
   - `data/sql/uninstall/mod_forever_druid_uninstall_world.sql` on the world database removes the
-    `spell_proc` rows and the script bindings.
+    `spell_proc` rows and the script bindings, and puts Lacerate back at level 66. Druids who
+    already trained it keep it.
   - `data/sql/uninstall/mod_forever_druid_uninstall_characters.sql` on the characters database
     takes Pulverize off every character and their action bars. Without it, druids who didn't log
     in keep the unscripted "Test Maul".
