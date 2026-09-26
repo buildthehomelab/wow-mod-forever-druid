@@ -1,0 +1,46 @@
+[worldserver]
+
+########################################
+# mod-forever-druid
+#
+# WoW Forever-style bear tanking: Swipe (Bear) costs no rage, and Bear Form and Dire Bear Form
+# give rage every time you dodge.
+########################################
+
+#
+#    ForeverDruid.Swipe.Enable
+#        Description: Change the rage cost of every rank of Swipe (Bear). With 0, Swipe costs
+#                     the game data's 20 rage again.
+#        Default:     1
+#
+
+ForeverDruid.Swipe.Enable = 1
+
+#
+#    ForeverDruid.Swipe.RageCost
+#        Description: Swipe (Bear)'s rage cost when ForeverDruid.Swipe.Enable = 1. The Ferocity
+#                     talent still takes its 1-5 rage off, down to 0. Without the optional client
+#                     patch the client still expects 20 rage and won't let you press Swipe with
+#                     less; with it, the patch must use the same value (see
+#                     tools/patch-forever-druid-dbc.sh).
+#        Default:     0
+#
+
+ForeverDruid.Swipe.RageCost = 0
+
+#
+#    ForeverDruid.BearDodgeRage.Enable
+#        Description: Give rage every time a druid in Bear Form or Dire Bear Form dodges an
+#                     attack. Stacks with the Natural Reaction talent.
+#        Default:     1
+#
+
+ForeverDruid.BearDodgeRage.Enable = 1
+
+#
+#    ForeverDruid.BearDodgeRage.Amount
+#        Description: Rage gained per dodge.
+#        Default:     5
+#
+
+ForeverDruid.BearDodgeRage.Amount = 5
