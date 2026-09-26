@@ -6,8 +6,12 @@
  * - Swipe (Bear) costs no rage, at every rank.
  * - Bear Form and Dire Bear Form give 5 rage every time the druid dodges. This stacks with the
  *   Natural Reaction talent, which adds its own 1-3 rage per dodge.
+ * - Frenzied Regeneration turns each point of rage into 1% of max health instead of 0.3%, as in
+ *   WoW Forever, so a full 100 rage heals the druid to full over its 10 seconds.
  *
- * The rage cost is changed in the server's copy of the spell data. The client reads the cost from
+ * The rage cost and the Frenzied Regeneration rate are changed in the server's copy of the spell
+ * data. The client only uses Frenzied Regeneration's rate for its tooltip, so that works without
+ * a client patch. The client reads the cost from
  * its own Spell.dbc and won't let you press Swipe with less rage than that, so a free Swipe needs
  * the optional client patch (tools/patch-forever-druid-dbc.sh). The dodge rage needs no client
  * patch.
@@ -27,7 +31,9 @@
 #include "SpellScript.h"
 #include "SpellScriptLoader.h"
 
+#include <algorithm>
 #include <array>
+#include <cmath>
 #include <optional>
 
 namespace
@@ -35,12 +41,17 @@ namespace
     // Every rank of Swipe (Bear), from rank 1 to rank 8. Must match tools/patch-forever-druid-dbc.sh.
     constexpr std::array<uint32, 8> SPELL_SWIPE_BEAR_RANKS = { 779, 780, 769, 9754, 9908, 26997, 48561, 48562 };
 
+    // Must match tools/patch-forever-druid-dbc.sh.
+    constexpr uint32 SPELL_FRENZIED_REGENERATION = 22842;
+
     struct Config
     {
         bool swipeEnabled = true;
         uint32 swipeRageCost = 0;
         bool dodgeRageEnabled = true;
         uint32 dodgeRage = 5;
+        bool frenziedRegenerationEnabled = true;
+        float frenziedRegenerationHealthPercent = 1.0f;
     };
 
     Config config;
@@ -66,6 +77,36 @@ namespace
             // Rage is stored ten times over: 20 rage is 200.
             spellInfo->ManaCost = config.swipeEnabled ? config.swipeRageCost * 10 : *stockSwipeCost[i];
         }
+    }
+
+    // The game data's base points for Frenzied Regeneration's rate (2, so the effect is worth 3),
+    // read before the module changes it.
+    std::optional<int32> stockFrenziedRegenerationPoints;
+
+    // The core's Frenzied Regeneration script (spell_dru_frenzied_regeneration) heals the effect
+    // 1 value, in tenths of a percent of max health, for each point of rage: 3 is 0.3%. Set it so
+    // the core heals the configured share instead. The value is the base points plus 1 (the
+    // effect's die has one side). Runs at the same times as ApplySwipeRageCost.
+    void ApplyFrenziedRegenerationRate()
+    {
+        SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(SPELL_FRENZIED_REGENERATION));
+        if (!spellInfo)
+            return;
+
+        SpellEffectInfo& rate = spellInfo->Effects[EFFECT_1];
+        if (!stockFrenziedRegenerationPoints)
+            stockFrenziedRegenerationPoints = rate.BasePoints;
+
+        if (config.frenziedRegenerationEnabled)
+            rate.BasePoints = std::max(0, int32(std::lround(config.frenziedRegenerationHealthPercent * 10.0f))) - 1;
+        else
+            rate.BasePoints = *stockFrenziedRegenerationPoints;
+    }
+
+    void ApplySpellChanges()
+    {
+        ApplySwipeRageCost();
+        ApplyFrenziedRegenerationRate();
     }
 }
 
@@ -111,13 +152,16 @@ public:
         config.dodgeRageEnabled = sConfigMgr->GetOption<bool>("ForeverDruid.BearDodgeRage.Enable", true);
         config.dodgeRage        = sConfigMgr->GetOption<uint32>("ForeverDruid.BearDodgeRage.Amount", 5);
 
+        config.frenziedRegenerationEnabled       = sConfigMgr->GetOption<bool>("ForeverDruid.FrenziedRegeneration.Enable", true);
+        config.frenziedRegenerationHealthPercent = sConfigMgr->GetOption<float>("ForeverDruid.FrenziedRegeneration.HealthPercentPerRage", 1.0f);
+
         // At startup the spells aren't loaded yet; OnBeforeWorldInitialized does it then.
-        ApplySwipeRageCost();
+        ApplySpellChanges();
     }
 
     void OnBeforeWorldInitialized() override
     {
-        ApplySwipeRageCost();
+        ApplySpellChanges();
     }
 };
 

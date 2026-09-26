@@ -5,9 +5,10 @@ bear tanking to a 3.3.5 server:
 
 - **Swipe (Bear) costs no rage**, at every rank.
 - **Bear Form and Dire Bear Form give 5 rage every time you dodge.**
+- **Frenzied Regeneration turns each point of rage into 1% of max health**, up from 0.3%.
 
-The dodge rage works without a client patch. A free Swipe needs the optional client patch (see
-below), because the client checks Swipe's rage cost itself.
+The dodge rage and Frenzied Regeneration work without a client patch. A free Swipe needs the
+optional client patch (see below), because the client checks Swipe's rage cost itself.
 
 ## Swipe (Bear)
 
@@ -28,6 +29,16 @@ with 3/3 Natural Reaction gets 8 rage per dodge. Like any rage gain from a spell
 little threat.
 
 NPC druids in bear form don't get it.
+
+## Frenzied Regeneration
+
+Frenzied Regeneration (3 minute cooldown) still turns up to 10 rage per second into health for
+10 seconds, but each point of rage now heals 1% of max health instead of 0.3%, as in WoW Forever.
+With 100 rage it heals you to full over the 10 seconds; with 30 rage, 30%. It's the thing to spend
+the extra rage from dodging and free Swipe on.
+
+The healing still counts as healing received, so talents, glyphs and healing debuffs change it as
+before.
 
 ## Install
 
@@ -51,9 +62,12 @@ on Bear Form and Dire Bear Form) are added to the world database on the next sta
 | `ForeverDruid.Swipe.RageCost` | `0` | Swipe (Bear)'s rage cost when enabled. |
 | `ForeverDruid.BearDodgeRage.Enable` | `1` | Give rage for dodging in Bear Form and Dire Bear Form. |
 | `ForeverDruid.BearDodgeRage.Amount` | `5` | Rage per dodge. |
+| `ForeverDruid.FrenziedRegeneration.Enable` | `1` | Change Frenzied Regeneration's rate. `0` puts it back to 0.3%. |
+| `ForeverDruid.FrenziedRegeneration.HealthPercentPerRage` | `1.0` | Share of max health per point of rage, in steps of 0.1. |
 
-All four take effect on `.reload config`. If you change `RageCost` and use the client patch,
-change `RAGE_COST` at the top of `tools/patch-forever-druid-dbc.sh` and rebuild the patch.
+All of them take effect on `.reload config`. If you change `RageCost` or `HealthPercentPerRage`
+and use the client patch, change `RAGE_COST` or `HEALTH_PERCENT_PER_RAGE` at the top of
+`tools/patch-forever-druid-dbc.sh` and rebuild the patch.
 
 ## Optional client patch
 
@@ -61,8 +75,10 @@ The client reads Swipe's rage cost from its own Spell.dbc. Without the patch it 
 Swipe costs 20 rage: the tooltip says 20 Rage, and the client won't let you press Swipe with less
 than 20 rage ("Not enough rage"). With 20 or more, Swipe works and costs nothing.
 
-`tools/patch-forever-druid-dbc.sh` sets the rage cost of all 8 Swipe (Bear) ranks in Spell.dbc.
-Nothing else changes.
+Frenzied Regeneration heals the new amount without the patch, but its tooltip still says 0.3%.
+
+`tools/patch-forever-druid-dbc.sh` sets the rage cost of all 8 Swipe (Bear) ranks and Frenzied
+Regeneration's rate in Spell.dbc. Nothing else changes.
 
 ```bash
 tools/patch-forever-druid-dbc.sh <Spell.dbc> DBFilesClient
@@ -78,13 +94,15 @@ their `Cache/` folder.
 
 ## Turning it off
 
-- **Keep the module, switch things off:** set `ForeverDruid.Swipe.Enable = 0` and/or
-  `ForeverDruid.BearDodgeRage.Enable = 0`, then `.reload config` or restart. If you shipped the
-  client patch, players' tooltips keep saying 0 rage until you take the change out of the patch.
+- **Keep the module, switch things off:** set any of `ForeverDruid.Swipe.Enable`,
+  `ForeverDruid.BearDodgeRage.Enable` and `ForeverDruid.FrenziedRegeneration.Enable` to `0`, then
+  `.reload config` or restart. If you shipped the client patch, players' tooltips keep the new
+  values until you take the changes out of the patch.
 - **Remove the module for good:** stop the worldserver, delete the module, rebuild, and run
   `data/sql/uninstall/mod_forever_druid_uninstall_world.sql` on the world database. It removes the
   `spell_proc` rows and the script binding. Nothing is saved on characters, so there's no
-  characters database cleanup. Take the Swipe change out of the client patch too.
+  characters database cleanup. Take the Swipe and Frenzied Regeneration changes out of the client
+  patch too.
 
 AzerothCore never runs the `uninstall` folder by itself; it only runs the module's `db-world`
 folder.

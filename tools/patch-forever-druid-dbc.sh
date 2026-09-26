@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 #
-# Write Swipe (Bear)'s new rage cost into a 3.3.5a (12340) client's Spell.dbc, for an optional
-# client patch. Without it the client still thinks Swipe costs 20 rage: it shows that in the
-# tooltip and won't let you press Swipe with less rage.
+# Write Swipe (Bear)'s new rage cost and Frenzied Regeneration's new rate into a 3.3.5a (12340)
+# client's Spell.dbc, for an optional client patch. Without it the client still thinks Swipe costs
+# 20 rage: it shows that in the tooltip and won't let you press Swipe with less rage. Frenzied
+# Regeneration works either way; the patch only fixes its tooltip.
 #
 # Usage: tools/patch-forever-druid-dbc.sh <Spell.dbc> [output dir]
 #   <Spell.dbc>     3.3.5a Spell.dbc: the client's own, or one another module's script already
@@ -12,7 +13,7 @@
 set -euo pipefail
 
 if [[ $# -lt 1 || $# -gt 2 ]]; then
-    sed -n '7,10p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '8,11p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
 fi
 
@@ -21,11 +22,14 @@ import os, struct, sys
 
 spell_src, out_dir = sys.argv[1:3]
 
-# Must match src/ForeverDruid.cpp and ForeverDruid.Swipe.RageCost in
-# conf/mod_forever_druid.conf.dist. If you change that setting, change this and run the script
-# again.
+# Must match src/ForeverDruid.cpp and ForeverDruid.Swipe.RageCost and
+# ForeverDruid.FrenziedRegeneration.HealthPercentPerRage in conf/mod_forever_druid.conf.dist. If
+# you change those settings, change these and run the script again.
 SWIPE_BEAR_RANKS = [779, 780, 769, 9754, 9908, 26997, 48561, 48562]
 RAGE_COST = 0
+
+SPELL_FRENZIED_REGENERATION = 22842
+HEALTH_PERCENT_PER_RAGE = 1.0
 
 POWER_RAGE = 1
 
@@ -54,6 +58,7 @@ def write_dbc(path, rows, strings, field_count):
 SPELL_FIELDS = 234
 POWER_TYPE = 41           # m_powerType
 MANA_COST = 42            # m_manaCost (rage is stored ten times over: 20 rage is 200)
+EFFECT_BASE_POINTS_1 = 81 # m_effectBasePoints[1]: the tooltip shows it plus 1, in tenths of a percent
 
 spell_rows, spell_strings = read_dbc(spell_src, SPELL_FIELDS)
 by_id = {row[0]: row for row in spell_rows}
@@ -67,6 +72,13 @@ for spell_id in SWIPE_BEAR_RANKS:
     row[MANA_COST] = RAGE_COST * 10
 
 print(f"  Swipe (Bear), all {len(SWIPE_BEAR_RANKS)} ranks: {RAGE_COST} rage")
+
+row = by_id.get(SPELL_FRENZIED_REGENERATION)
+if row is None:
+    sys.exit(f"{spell_src}: spell {SPELL_FRENZIED_REGENERATION} not found")
+tenths = max(0, round(HEALTH_PERCENT_PER_RAGE * 10))
+row[EFFECT_BASE_POINTS_1] = (tenths - 1) & 0xFFFFFFFF
+print(f"  Frenzied Regeneration: {tenths / 10:.1f}% of max health per rage")
 
 write_dbc(os.path.join(out_dir, "Spell.dbc"), spell_rows, spell_strings, SPELL_FIELDS)
 print(f"Wrote {out_dir}/Spell.dbc")

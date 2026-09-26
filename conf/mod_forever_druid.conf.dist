@@ -3,8 +3,8 @@
 ########################################
 # mod-forever-druid
 #
-# WoW Forever-style bear tanking: Swipe (Bear) costs no rage, and Bear Form and Dire Bear Form
-# give rage every time you dodge.
+# WoW Forever-style bear tanking: Swipe (Bear) costs no rage, Bear Form and Dire Bear Form give
+# rage every time you dodge, and Frenzied Regeneration turns rage into more health.
 ########################################
 
 #
@@ -44,3 +44,23 @@ ForeverDruid.BearDodgeRage.Enable = 1
 #
 
 ForeverDruid.BearDodgeRage.Amount = 5
+
+#
+#    ForeverDruid.FrenziedRegeneration.Enable
+#        Description: Change how much health Frenzied Regeneration gives per point of rage. With
+#                     0, it gives the game data's 0.3% of max health per rage again.
+#        Default:     1
+#
+
+ForeverDruid.FrenziedRegeneration.Enable = 1
+
+#
+#    ForeverDruid.FrenziedRegeneration.HealthPercentPerRage
+#        Description: Share of max health each point of rage becomes, in steps of 0.1. At 1.0
+#                     (WoW Forever's value), the full 100 rage it can use over 10 seconds heals
+#                     100% of max health. Stock is 0.3. The optional client patch must use the same
+#                     value for the tooltip to match (see tools/patch-forever-druid-dbc.sh).
+#        Default:     1.0
+#
+
+ForeverDruid.FrenziedRegeneration.HealthPercentPerRage = 1.0
