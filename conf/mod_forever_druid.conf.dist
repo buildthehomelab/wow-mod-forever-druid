@@ -4,7 +4,8 @@
 # mod-forever-druid
 #
 # WoW Forever-style bear tanking: Swipe (Bear) costs no rage, Bear Form and Dire Bear Form give
-# rage every time you dodge, and Frenzied Regeneration turns rage into more health.
+# rage every time you dodge, Frenzied Regeneration turns rage into more health, and druids learn
+# Cataclysm's Pulverize.
 ########################################
 
 #
@@ -27,6 +28,16 @@ ForeverDruid.Swipe.Enable = 1
 #
 
 ForeverDruid.Swipe.RageCost = 0
+
+#
+#    ForeverDruid.Swipe.LearnWithBearForm
+#        Description: Druids learn Swipe (Bear) rank 1 together with Bear Form (level 10) instead
+#                     of training it at 16. Druids who already know Bear Form get it at their next
+#                     login. Turning it off doesn't take Swipe away.
+#        Default:     1
+#
+
+ForeverDruid.Swipe.LearnWithBearForm = 1
 
 #
 #    ForeverDruid.BearDodgeRage.Enable
@@ -64,3 +75,59 @@ ForeverDruid.FrenziedRegeneration.Enable = 1
 #
 
 ForeverDruid.FrenziedRegeneration.HealthPercentPerRage = 1.0
+
+#
+#    ForeverDruid.Pulverize.Enable
+#        Description: Druids learn Pulverize, Cataclysm's bear finisher: a melee attack that uses
+#                     up the Lacerate stacks on the target for extra damage and a crit buff. With
+#                     0, druids who learned it lose it at their next login.
+#        Default:     1
+#
+
+ForeverDruid.Pulverize.Enable = 1
+
+#
+#    ForeverDruid.Pulverize.Level
+#        Description: Level at which druids learn Pulverize. Lacerate is trained at 66, so until
+#                     then Pulverize is just a weapon hit.
+#        Default:     42
+#
+
+ForeverDruid.Pulverize.Level = 42
+
+#
+#    ForeverDruid.Pulverize.RageCost
+#        Description: Rage cost. The optional client patch must use the same value.
+#        Default:     15
+#
+
+ForeverDruid.Pulverize.RageCost = 15
+
+#
+#    ForeverDruid.Pulverize.WeaponDamagePercent
+#        Description: The hit's damage as a percentage of weapon damage (in bear form, the form's
+#                     own weapon damage). The optional client patch must use the same value.
+#        Default:     60
+#
+
+ForeverDruid.Pulverize.WeaponDamagePercent = 60
+
+#
+#    ForeverDruid.Pulverize.AttackPowerPerStack
+#        Description: Extra damage for each Lacerate stack used up, as a share of attack power.
+#                     At 0.04, 5 stacks with 8000 attack power add 1600. The optional client patch
+#                     must use the same value.
+#        Default:     0.04
+#
+
+ForeverDruid.Pulverize.AttackPowerPerStack = 0.04
+
+#
+#    ForeverDruid.Pulverize.CritPerStack
+#        Description: Melee crit chance, in percent, for each Lacerate stack used up, for 10
+#                     seconds: up to 10% at 5 stacks. 0 for no buff. The optional client patch
+#                     must use the same value.
+#        Default:     2
+#
+
+ForeverDruid.Pulverize.CritPerStack = 2
