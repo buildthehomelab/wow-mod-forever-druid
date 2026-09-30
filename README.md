@@ -8,7 +8,7 @@ bear tanking to a 3.3.5 server:
 - **Frenzied Regeneration turns each point of rage into 1% of max health**, up from 0.3%.
 - **Pulverize**, Cataclysm's bear finisher, at level 42, and **Lacerate moves to level 42** to
   go with it.
-- **Travel and flight forms follow [mod-mount-scaling](https://github.com/AldebaraanMKII/mod-mount-scaling)**
+- **Travel and flight forms follow [mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling)**
   when that module is installed.
 
 Everything works on the server alone, but the optional client patch (see below) is strongly
@@ -51,7 +51,7 @@ before.
 
 ## Travel form speed
 
-[mod-mount-scaling](https://github.com/AldebaraanMKII/mod-mount-scaling) makes mounts faster as you
+[mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling) makes mounts faster as you
 level, but only changes mount auras, so druid forms kept their fixed speed. With both modules
 installed, the forms get the speed a mount would:
 
