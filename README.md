@@ -67,6 +67,11 @@ riding otherwise. Like a mount, Swift Flight Form follows the Artisan curve: 208
 A druid who owns a 310% flying mount keeps a 310% Swift Flight Form at every level, as in stock
 WotLK.
 
+Travel Form only gets the mount speed **out of combat**. Entering combat drops it to the stock
+40% and leaving combat brings it back, so it stays a way to travel rather than a way to kite (a
+mount can't be used in combat at all). `ForeverDruid.FormSpeed.OutOfCombatOnly = 0` keeps the
+mount speed in combat too. The flight forms (which can't be cast in combat) keep their speed.
+
 The speed changes as soon as you shift, and when you level up in form. Without mod-mount-scaling
 (or with `MountScaling.Enable = 0`) nothing changes. `ForeverDruid.FormSpeed.Enable = 0` turns
 it off.

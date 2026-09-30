@@ -157,3 +157,14 @@ ForeverDruid.Pulverize.CritPerStack = 2
 #
 
 ForeverDruid.FormSpeed.Enable = 1
+
+#
+#    ForeverDruid.FormSpeed.OutOfCombatOnly
+#        Description: With 1, Travel Form only gets the mount speed out of combat: entering
+#                     combat drops it to the stock 40% and leaving combat brings it back. Mounts
+#                     can't be used in combat at all. The flight forms aren't affected. With 0,
+#                     Travel Form keeps the mount speed in combat too.
+#        Default:     1
+#
+
+ForeverDruid.FormSpeed.OutOfCombatOnly = 1
