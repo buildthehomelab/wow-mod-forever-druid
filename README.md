@@ -8,6 +8,8 @@ bear tanking to a 3.3.5 server:
 - **Frenzied Regeneration turns each point of rage into 1% of max health**, up from 0.3%.
 - **Pulverize**, Cataclysm's bear finisher, at level 42, and **Lacerate moves to level 42** to
   go with it.
+- **Travel and flight forms follow [mod-mount-scaling](https://github.com/AldebaraanMKII/mod-mount-scaling)**
+  when that module is installed.
 
 Everything works on the server alone, but the optional client patch (see below) is strongly
 recommended: without it the client won't let you press Swipe with less than 20 rage, and
@@ -46,6 +48,27 @@ the extra rage from dodging and free Swipe on.
 
 The healing still counts as healing received, so talents, glyphs and healing debuffs change it as
 before.
+
+## Travel form speed
+
+[mod-mount-scaling](https://github.com/AldebaraanMKII/mod-mount-scaling) makes mounts faster as you
+level, but only changes mount auras, so druid forms kept their fixed speed. With both modules
+installed, the forms get the speed a mount would:
+
+| Form | Stock | With mod-mount-scaling |
+|---|---|---|
+| Travel Form | 40% | ground mount speed (Apprentice / Journeyman Riding) |
+| Flight Form | 150% flying, 60% on the ground | Expert / Artisan flying speed, ground mount speed on the ground |
+| Swift Flight Form | 280% flying, 100% on the ground | the same |
+
+The numbers come from mod-mount-scaling's own `MountScaling.*` settings, so the two always match.
+A druid without the riding skill for it keeps the form's stock speed; Travel Form doesn't need
+riding otherwise. Like a mount, Swift Flight Form follows the Artisan curve: 208% at 71, 280% at 80,
+and a 310% mount no longer lifts it to 310%.
+
+The speed changes as soon as you shift, and when you level up in form. Without mod-mount-scaling
+(or with `MountScaling.Enable = 0`) nothing changes. `ForeverDruid.FormSpeed.Enable = 0` turns
+it off.
 
 ## Pulverize
 
