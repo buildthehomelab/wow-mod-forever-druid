@@ -63,8 +63,9 @@ installed, the forms get the speed a mount would:
 
 The numbers come from mod-mount-scaling's own `MountScaling.*` settings, so the two always match.
 A druid without the riding skill for it keeps the form's stock speed; Travel Form doesn't need
-riding otherwise. Like a mount, Swift Flight Form follows the Artisan curve: 208% at 71, 280% at 80,
-and a 310% mount no longer lifts it to 310%.
+riding otherwise. Like a mount, Swift Flight Form follows the Artisan curve: 208% at 71, 280% at 80.
+A druid who owns a 310% flying mount keeps a 310% Swift Flight Form at every level, as in stock
+WotLK.
 
 The speed changes as soon as you shift, and when you level up in form. Without mod-mount-scaling
 (or with `MountScaling.Enable = 0`) nothing changes. `ForeverDruid.FormSpeed.Enable = 0` turns

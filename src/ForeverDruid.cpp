@@ -346,9 +346,13 @@ namespace FormSpeed
             || spellId == SPELL_SWIFT_FLIGHT_FORM_PASSIVE;
     }
 
+    // Swift Flight Form's speed for a druid who owns a 310% flying mount, as the core's
+    // spell_dru_swift_flight_passive gives it.
+    constexpr int32 SWIFT_FLIGHT_FORM_310_SPEED = 310;
+
     // Set the speed effects of one of the form passives. Runs after the aura is applied, so it
-    // also overrides the core's spell_dru_swift_flight_passive (310% with a 310% mount), the same
-    // way mod-mount-scaling overrides a 310% mount. ChangeAmount updates the speed at once.
+    // comes after the core's spell_dru_swift_flight_passive. ChangeAmount updates the speed at
+    // once.
     void Apply(Player* player, Aura* aura)
     {
         if (!config.formSpeedEnabled || !mountScaling.enabled)
@@ -364,7 +368,14 @@ namespace FormSpeed
             if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_SPEED)
                 speed = Ground(player);
             else if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED)
+            {
                 speed = Flight(player);
+
+                // A druid with a 310% mount keeps a 310% Swift Flight Form at every level: the
+                // scaling never takes that away.
+                if (aura->GetId() == SPELL_SWIFT_FLIGHT_FORM_PASSIVE && player->Has310Flyer(false))
+                    speed = std::max(speed, SWIFT_FLIGHT_FORM_310_SPEED);
+            }
 
             if (speed > 0 && speed != effect->GetAmount())
                 effect->ChangeAmount(speed);
