@@ -143,3 +143,17 @@ ForeverDruid.Pulverize.AttackPowerPerStack = 0.04
 #
 
 ForeverDruid.Pulverize.CritPerStack = 2
+
+#
+#    ForeverDruid.FormSpeed.Enable
+#        Description: With mod-mount-scaling installed, Travel Form, Flight Form and Swift Flight
+#                     Form get the same level-scaled speed as a mount: ground speed from
+#                     Apprentice or Journeyman Riding, flight speed from Expert or Artisan Riding.
+#                     The numbers come from mod-mount-scaling's own MountScaling.* settings. A
+#                     druid without the riding skill for it keeps the form's stock speed (Travel
+#                     Form 40%, Flight Form 150%, Swift Flight Form 280%). Does nothing without
+#                     mod-mount-scaling or with MountScaling.Enable = 0.
+#        Default:     1
+#
+
+ForeverDruid.FormSpeed.Enable = 1

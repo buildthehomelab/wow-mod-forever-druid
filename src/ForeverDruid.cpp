@@ -14,6 +14,9 @@
  *   WoW Forever, so the two arrive together, and its rank 1 damage scales with level from 42 to
  *   66 so it isn't too strong early.
  *
+ * - With mod-mount-scaling installed, Travel Form, Flight Form and Swift Flight Form follow its
+ *   level-scaled mount speeds, like a mount would.
+ *
  * The rage costs and the Frenzied Regeneration rate are changed in the server's copy of the spell
  * data. The client reads rage costs from its own Spell.dbc and won't let you press an ability with
  * less rage than that, so a free Swipe needs the optional client patch
@@ -77,6 +80,19 @@ namespace
     // SpellDuration.dbc row for 10 seconds.
     constexpr uint32 DURATION_10_SECONDS = 1;
 
+    // The passive auras the travel forms cast on the druid, which hold the forms' speed. Travel
+    // Form: effect 0 ground speed (40%). Flight Form and Swift Flight Form: effect 0 ground speed
+    // (60% / 100%), effect 1 flight speed (150% / 280%).
+    constexpr uint32 SPELL_TRAVEL_FORM_PASSIVE       = 5419;
+    constexpr uint32 SPELL_FLIGHT_FORM_PASSIVE       = 33948;
+    constexpr uint32 SPELL_SWIFT_FLIGHT_FORM_PASSIVE = 40121;
+
+    // Riding skills, as mod-mount-scaling checks them.
+    constexpr uint32 SPELL_APPRENTICE_RIDING = 33388;
+    constexpr uint32 SPELL_JOURNEYMAN_RIDING = 33391;
+    constexpr uint32 SPELL_EXPERT_RIDING     = 34090;
+    constexpr uint32 SPELL_ARTISAN_RIDING    = 34091;
+
     struct Config
     {
         bool swipeEnabled = true;
@@ -93,7 +109,29 @@ namespace
         uint32 pulverizeWeaponDamagePercent = 60;
         float pulverizeAttackPowerPerStack = 0.04f;
         uint32 pulverizeCritPerStack = 2;
+        bool formSpeedEnabled = true;
     };
+
+    // mod-mount-scaling's settings, read from its own config file (MountScaling.*). enabled is
+    // false when that module isn't installed, and the forms keep their stock speed.
+    struct MountScalingConfig
+    {
+        bool enabled = false;
+        float groundPerLevel = 2.5f;
+        float groundMin = 20.0f;
+        float groundMax = 100.0f;
+        float journeymanPerLevel = 2.5f;
+        float journeymanMin = 100.0f;
+        float journeymanMax = 150.0f;
+        float expertPerLevel = 5.0f;
+        float expertMin = 150.0f;
+        float expertMax = 200.0f;
+        float artisanPerLevel = 8.0f;
+        float artisanMin = 200.0f;
+        float artisanMax = 280.0f;
+    };
+
+    MountScalingConfig mountScaling;
 
     Config config;
 
@@ -268,6 +306,92 @@ namespace
     }
 }
 
+// mod-mount-scaling's formulas (src/MountScaling.cpp there), so a druid in a travel form goes as
+// fast as they would on a mount: ground speed from Apprentice or Journeyman Riding, flight speed
+// from Expert or Artisan Riding, growing with level. 0 means "no riding skill for it": keep the
+// form's stock speed.
+namespace FormSpeed
+{
+    int32 Ground(Player* player)
+    {
+        if (!player->HasSpell(SPELL_APPRENTICE_RIDING))
+            return 0;
+
+        float const level = player->GetLevel();
+        MountScalingConfig const& c = mountScaling;
+
+        if (player->HasSpell(SPELL_JOURNEYMAN_RIDING))
+            return int32(std::clamp(c.journeymanMin + (level - 40) * c.journeymanPerLevel, c.journeymanMin, c.journeymanMax));
+
+        return int32(std::min(std::max(c.groundMin, level * c.groundPerLevel), c.groundMax));
+    }
+
+    int32 Flight(Player* player)
+    {
+        float const level = player->GetLevel();
+        MountScalingConfig const& c = mountScaling;
+
+        if (player->HasSpell(SPELL_ARTISAN_RIDING))
+            return int32(std::clamp(c.artisanMin + (level - 70) * c.artisanPerLevel, c.artisanMin, c.artisanMax));
+
+        if (player->HasSpell(SPELL_EXPERT_RIDING))
+            return int32(std::clamp(c.expertMin + (level - 60) * c.expertPerLevel, c.expertMin, c.expertMax));
+
+        return 0;
+    }
+
+    bool IsFormPassive(uint32 spellId)
+    {
+        return spellId == SPELL_TRAVEL_FORM_PASSIVE || spellId == SPELL_FLIGHT_FORM_PASSIVE
+            || spellId == SPELL_SWIFT_FLIGHT_FORM_PASSIVE;
+    }
+
+    // Swift Flight Form's speed for a druid who owns a 310% flying mount, as the core's
+    // spell_dru_swift_flight_passive gives it.
+    constexpr int32 SWIFT_FLIGHT_FORM_310_SPEED = 310;
+
+    // Set the speed effects of one of the form passives. Runs after the aura is applied, so it
+    // comes after the core's spell_dru_swift_flight_passive. ChangeAmount updates the speed at
+    // once.
+    void Apply(Player* player, Aura* aura)
+    {
+        if (!config.formSpeedEnabled || !mountScaling.enabled)
+            return;
+
+        for (uint8 i = EFFECT_0; i <= EFFECT_1; ++i)
+        {
+            AuraEffect* effect = aura->GetEffect(i);
+            if (!effect)
+                continue;
+
+            int32 speed = 0;
+            if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_SPEED)
+                speed = Ground(player);
+            else if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED)
+            {
+                speed = Flight(player);
+
+                // A druid with a 310% mount keeps a 310% Swift Flight Form at every level: the
+                // scaling never takes that away.
+                if (aura->GetId() == SPELL_SWIFT_FLIGHT_FORM_PASSIVE && player->Has310Flyer(false))
+                    speed = std::max(speed, SWIFT_FLIGHT_FORM_310_SPEED);
+            }
+
+            if (speed > 0 && speed != effect->GetAmount())
+                effect->ChangeAmount(speed);
+        }
+    }
+
+    // After a level up, for a druid who is in a travel form right now. Other changes (a new
+    // riding skill, a config reload) take effect the next time they shift.
+    void Update(Player* player)
+    {
+        for (uint32 spellId : { SPELL_TRAVEL_FORM_PASSIVE, SPELL_FLIGHT_FORM_PASSIVE, SPELL_SWIFT_FLIGHT_FORM_PASSIVE })
+            if (Aura* aura = player->GetAura(spellId))
+                Apply(player, aura);
+    }
+}
+
 // 5487 - Bear Form
 // 9634 - Dire Bear Form
 class spell_dru_forever_bear_dodge_rage : public AuraScript
@@ -399,6 +523,25 @@ public:
         config.pulverizeAttackPowerPerStack = sConfigMgr->GetOption<float>("ForeverDruid.Pulverize.AttackPowerPerStack", 0.04f);
         config.pulverizeCritPerStack        = sConfigMgr->GetOption<uint32>("ForeverDruid.Pulverize.CritPerStack", 2);
 
+        config.formSpeedEnabled = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.Enable", true);
+
+        // mod-mount-scaling's own settings, with its defaults. Without that module these aren't
+        // in any config file, so don't log them as missing.
+        auto mountOption = [](char const* name, float def) { return sConfigMgr->GetOption<float>(name, def, false); };
+        mountScaling.enabled            = sConfigMgr->GetOption<bool>("MountScaling.Enable", false, false);
+        mountScaling.groundPerLevel     = mountOption("MountScaling.Ground.SpeedPerLevel", 2.5f);
+        mountScaling.groundMin          = mountOption("MountScaling.Ground.MinSpeed", 20.0f);
+        mountScaling.groundMax          = mountOption("MountScaling.Ground.MaxSpeed", 100.0f);
+        mountScaling.journeymanPerLevel = mountOption("MountScaling.Ground.Journeyman.SpeedPerLevel", 2.5f);
+        mountScaling.journeymanMin      = mountOption("MountScaling.Ground.Journeyman.MinSpeed", 100.0f);
+        mountScaling.journeymanMax      = mountOption("MountScaling.Ground.Journeyman.MaxSpeed", 150.0f);
+        mountScaling.expertPerLevel     = mountOption("MountScaling.Flying.Expert.SpeedPerLevel", 5.0f);
+        mountScaling.expertMin          = mountOption("MountScaling.Flying.Expert.MinSpeed", 150.0f);
+        mountScaling.expertMax          = mountOption("MountScaling.Flying.Expert.MaxSpeed", 200.0f);
+        mountScaling.artisanPerLevel    = mountOption("MountScaling.Flying.Artisan.SpeedPerLevel", 8.0f);
+        mountScaling.artisanMin         = mountOption("MountScaling.Flying.Artisan.MinSpeed", 200.0f);
+        mountScaling.artisanMax         = mountOption("MountScaling.Flying.Artisan.MaxSpeed", 280.0f);
+
         // At startup the spells aren't loaded yet; OnBeforeWorldInitialized does it then.
         ApplySpellChanges();
     }
@@ -423,6 +566,7 @@ public:
     void OnPlayerLevelChanged(Player* player, uint8 /*oldLevel*/) override
     {
         UpdatePulverize(player);
+        FormSpeed::Update(player);
     }
 
     void OnPlayerLearnSpell(Player* player, uint32 spellId) override
@@ -432,10 +576,28 @@ public:
     }
 };
 
+// Travel form speeds. A UnitScript, like mod-mount-scaling's, rather than an AuraScript: it runs
+// after every effect is applied, so it comes after the core's own script on Swift Flight Form.
+class ForeverDruidUnitScript : public UnitScript
+{
+public:
+    ForeverDruidUnitScript() : UnitScript("ForeverDruidUnitScript", true, { UNITHOOK_ON_AURA_APPLY }) { }
+
+    void OnAuraApply(Unit* unit, Aura* aura) override
+    {
+        if (!FormSpeed::IsFormPassive(aura->GetId()))
+            return;
+
+        if (Player* player = unit->ToPlayer())
+            FormSpeed::Apply(player, aura);
+    }
+};
+
 void AddForeverDruidScripts()
 {
     new ForeverDruidWorldScript();
     new ForeverDruidPlayerScript();
+    new ForeverDruidUnitScript();
     RegisterSpellScript(spell_dru_forever_bear_dodge_rage);
     RegisterSpellScript(spell_dru_forever_pulverize);
     RegisterSpellScript(spell_dru_forever_pulverize_buff);
