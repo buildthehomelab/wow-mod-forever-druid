@@ -15,7 +15,8 @@
  *   66 so it isn't too strong early.
  *
  * - With mod-mount-scaling installed, Travel Form, Flight Form and Swift Flight Form follow its
- *   level-scaled mount speeds, like a mount would.
+ *   level-scaled mount speeds, like a mount would. Travel Form only out of combat: in combat it's
+ *   the stock 40%, since a mount can't be used in combat at all.
  *
  * The rage costs and the Frenzied Regeneration rate are changed in the server's copy of the spell
  * data. The client reads rage costs from its own Spell.dbc and won't let you press an ability with
@@ -110,6 +111,7 @@ namespace
         float pulverizeAttackPowerPerStack = 0.04f;
         uint32 pulverizeCritPerStack = 2;
         bool formSpeedEnabled = true;
+        bool formSpeedOutOfCombatOnly = true;
     };
 
     // mod-mount-scaling's settings, read from its own config file (MountScaling.*). enabled is
@@ -366,7 +368,13 @@ namespace FormSpeed
 
             int32 speed = 0;
             if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_SPEED)
-                speed = Ground(player);
+            {
+                // Travel Form goes back to its own speed (40%) while the druid is in combat.
+                if (aura->GetId() == SPELL_TRAVEL_FORM_PASSIVE && config.formSpeedOutOfCombatOnly && player->IsInCombat())
+                    speed = effect->GetSpellInfo()->Effects[i].CalcValue();
+                else
+                    speed = Ground(player);
+            }
             else if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED)
             {
                 speed = Flight(player);
@@ -382,8 +390,9 @@ namespace FormSpeed
         }
     }
 
-    // After a level up, for a druid who is in a travel form right now. Other changes (a new
-    // riding skill, a config reload) take effect the next time they shift.
+    // After a level up, or entering or leaving combat, for a druid who is in a travel form right
+    // now. Other changes (a new riding skill, a config reload) take effect the next time they
+    // shift.
     void Update(Player* player)
     {
         for (uint32 spellId : { SPELL_TRAVEL_FORM_PASSIVE, SPELL_FLIGHT_FORM_PASSIVE, SPELL_SWIFT_FLIGHT_FORM_PASSIVE })
@@ -523,7 +532,8 @@ public:
         config.pulverizeAttackPowerPerStack = sConfigMgr->GetOption<float>("ForeverDruid.Pulverize.AttackPowerPerStack", 0.04f);
         config.pulverizeCritPerStack        = sConfigMgr->GetOption<uint32>("ForeverDruid.Pulverize.CritPerStack", 2);
 
-        config.formSpeedEnabled = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.Enable", true);
+        config.formSpeedEnabled         = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.Enable", true);
+        config.formSpeedOutOfCombatOnly = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.OutOfCombatOnly", true);
 
         // mod-mount-scaling's own settings, with its defaults. Without that module these aren't
         // in any config file, so don't log them as missing.
@@ -567,6 +577,19 @@ public:
     {
         UpdatePulverize(player);
         FormSpeed::Update(player);
+    }
+
+    // The core sets the combat flag before calling these, so FormSpeed sees the new state.
+    void OnPlayerEnterCombat(Player* player, Unit* /*enemy*/) override
+    {
+        if (player->getClass() == CLASS_DRUID)
+            FormSpeed::Update(player);
+    }
+
+    void OnPlayerLeaveCombat(Player* player) override
+    {
+        if (player->getClass() == CLASS_DRUID)
+            FormSpeed::Update(player);
     }
 
     void OnPlayerLearnSpell(Player* player, uint32 spellId) override
