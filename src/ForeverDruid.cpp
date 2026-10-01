@@ -18,6 +18,15 @@
  *   level-scaled mount speeds, like a mount would. Travel Form only out of combat: in combat it's
  *   the stock 40%, since a mount can't be used in combat at all.
  *
+ * - Consumables work in Cat Form, Bear Form and Dire Bear Form. Food, potions, flasks, elixirs
+ *   and bandages already do in stock 3.3.5; this adds the ones the game data blocks while
+ *   shapeshifted: stat scrolls (Scroll of Agility and the like), water breathing elixirs, Gift of
+ *   Arthas, drums, battle standards and the rest. The other forms keep the stock rules.
+ *
+ * - Cat Form combo points work like mod-forever-rogue's rogue combo points: unused points follow
+ *   the druid to the next target, with the full count, and points left on a target that died wait
+ *   a little while for the next one.
+ *
  * The rage costs and the Frenzied Regeneration rate are changed in the server's copy of the spell
  * data. The client reads rage costs from its own Spell.dbc and won't let you press an ability with
  * less rage than that, so a free Swipe needs the optional client patch
@@ -36,9 +45,13 @@
  */
 
 #include "Config.h"
+#include "DataMap.h"
 #include "DBCStores.h"
+#include "ObjectAccessor.h"
+#include "ObjectMgr.h"
 #include "Player.h"
 #include "ScriptMgr.h"
+#include "Spell.h"
 #include "SpellAuraEffects.h"
 #include "SpellAuras.h"
 #include "SpellInfo.h"
@@ -50,6 +63,7 @@
 #include <array>
 #include <cmath>
 #include <optional>
+#include <unordered_map>
 
 namespace
 {
@@ -112,6 +126,9 @@ namespace
         uint32 pulverizeCritPerStack = 2;
         bool formSpeedEnabled = true;
         bool formSpeedOutOfCombatOnly = true;
+        bool formConsumablesEnabled = true;
+        bool catComboPointsEnabled = true;
+        uint32 catComboPointsKeepAfterKill = 20000;
     };
 
     // mod-mount-scaling's settings, read from its own config file (MountScaling.*). enabled is
@@ -263,6 +280,87 @@ namespace
         }
     }
 
+    // Cat Form, Bear Form and Dire Bear Form as a spell's form mask (bit form - 1).
+    constexpr uint32 FORM_MASK_CAT_AND_BEAR = (1 << (FORM_CAT - 1)) | (1 << (FORM_BEAR - 1)) | (1 << (FORM_DIREBEAR - 1));
+
+    // A consumable's spell as the game data has it, read before the module changes it.
+    struct ConsumableSpellData
+    {
+        uint32 stances;
+        uint32 attributesEx2;
+    };
+
+    std::unordered_map<uint32, ConsumableSpellData> stockConsumableSpells;
+
+    // Whether a consumable's on-use spell should become usable in Cat Form and Bear Form. Must
+    // match tools/patch-forever-druid-dbc.sh, which has the list these rules give for the stock
+    // items.
+    bool IsFormConsumableSpell(SpellInfo const* spellInfo)
+    {
+        // Only the spells shapeshifting blocks, and none that already ask for a form.
+        if (!spellInfo->HasAttribute(SPELL_ATTR0_NOT_SHAPESHIFTED) || spellInfo->Stances)
+            return false;
+
+        // Enchanting scrolls cast the enchanter's own trade skill spell, and a few quest items
+        // cast a class spell (Flamestrike, Chain Heal): leave the spells players learn alone.
+        SkillLineAbilityMapBounds const skills = sSpellMgr->GetSkillLineAbilityMapBounds(spellInfo->Id);
+        if (spellInfo->HasAttribute(SPELL_ATTR0_IS_TRADESKILL) || skills.first != skills.second)
+            return false;
+
+        // Rogue poisons go on a weapon a feral druid isn't using, and mounts and disguises don't
+        // mix with a form.
+        return !spellInfo->HasEffect(SPELL_EFFECT_ENCHANT_ITEM_TEMPORARY) && !spellInfo->HasAura(SPELL_AURA_MOUNTED)
+            && !spellInfo->HasAura(SPELL_AURA_TRANSFORM);
+    }
+
+    // Let the consumables the game data blocks while shapeshifted be used in Cat Form, Bear Form
+    // and Dire Bear Form too. Their spells say "not while shapeshifted"; adding the feral forms
+    // to their form list, with "also outside a form", makes them work in caster form and the
+    // feral forms only, the way the game data lets Thorns be cast in Moonkin Form. Other forms
+    // (Travel, Moonkin, Tree of Life, Ghost Wolf) still block them, and the buffs they give
+    // don't drop when the druid shifts.
+    void ApplyFormConsumables()
+    {
+        // The item templates are loaded after the first config load, so this finds nothing until
+        // OnBeforeWorldInitialized.
+        if (stockConsumableSpells.empty())
+        {
+            for (auto const& [entry, proto] : *sObjectMgr->GetItemTemplateStore())
+            {
+                if (proto.Class != ITEM_CLASS_CONSUMABLE)
+                    continue;
+
+                for (auto const& itemSpell : proto.Spells)
+                {
+                    if (itemSpell.SpellId <= 0 || itemSpell.SpellTrigger != ITEM_SPELLTRIGGER_ON_USE)
+                        continue;
+
+                    SpellInfo const* spellInfo = sSpellMgr->GetSpellInfo(itemSpell.SpellId);
+                    if (spellInfo && IsFormConsumableSpell(spellInfo))
+                        stockConsumableSpells.emplace(spellInfo->Id, ConsumableSpellData{ spellInfo->Stances, spellInfo->AttributesEx2 });
+                }
+            }
+        }
+
+        for (auto const& [spellId, stock] : stockConsumableSpells)
+        {
+            SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
+            if (!spellInfo)
+                continue;
+
+            if (config.formConsumablesEnabled)
+            {
+                spellInfo->Stances = stock.stances | FORM_MASK_CAT_AND_BEAR;
+                spellInfo->AttributesEx2 = stock.attributesEx2 | SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED;
+            }
+            else
+            {
+                spellInfo->Stances = stock.stances;
+                spellInfo->AttributesEx2 = stock.attributesEx2;
+            }
+        }
+    }
+
     // Runs once the spells are loaded, and again when the config is reloaded.
     void ApplySpellChanges()
     {
@@ -270,6 +368,7 @@ namespace
         ApplyFrenziedRegenerationRate();
         ApplyLacerateScaling();
         ApplyPulverizeSpellData();
+        ApplyFormConsumables();
     }
 
     // Teach Swipe (Bear) rank 1 to a druid who knows Bear Form (or Dire Bear Form) but no rank of
@@ -398,6 +497,172 @@ namespace FormSpeed
         for (uint32 spellId : { SPELL_TRAVEL_FORM_PASSIVE, SPELL_FLIGHT_FORM_PASSIVE, SPELL_SWIFT_FLIGHT_FORM_PASSIVE })
             if (Aura* aura = player->GetAura(spellId))
                 Apply(player, aura);
+    }
+}
+
+// Cat Form combo points, as mod-forever-rogue does them for rogues: unused points move to the
+// next hostile target the druid selects or attacks, with the full count, and points left on a
+// target that died wait CatComboPoints.KeepAfterKill for the next one. The server tells the client
+// which target holds the points, so it needs no client patch. Only druids get combo points from
+// Cat Form abilities, so this follows any druid's points, whatever form they're in.
+namespace CatComboPoints
+{
+    // After a finisher, points that vanish belong to the finisher, not to a dying target.
+    constexpr uint32 FINISHER_WINDOW = 3000;
+
+    struct ComboState : public DataMap::Base
+    {
+        // Points and target as of the last update, to tell what was lost when the target died.
+        uint8 lastPoints = 0;
+        ObjectGuid lastTarget;
+
+        // Points from a target that died, waiting for the next target.
+        uint8 savedPoints = 0;
+        uint32 savedTimer = 0;
+
+        // Time left in which a finisher may still take the points.
+        uint32 finisherTimer = 0;
+
+        // Points held when a builder was used, in case the builder kills its target: the core
+        // clears the points at the death and then adds the builder's points to the corpse from
+        // zero.
+        bool builderPending = false;
+        uint8 builderBase = 0;
+        ObjectGuid builderTarget;
+    };
+
+    ComboState* GetState(Player* player)
+    {
+        return player->CustomData.GetDefault<ComboState>("mod-forever-druid-combo-points");
+    }
+
+    bool IsEnabledFor(Player* player)
+    {
+        return config.catComboPointsEnabled && player->getClass() == CLASS_DRUID;
+    }
+
+    bool CanTakePoints(Player* player, Unit* target)
+    {
+        return target && target != player && target->IsAlive() && player->IsValidAttackTarget(target);
+    }
+
+    // Moves the druid's combo points, or points saved from a dead target, onto the new target.
+    void MovePointsTo(Player* player, ComboState* state, Unit* target)
+    {
+        if (!CanTakePoints(player, target) || player->GetComboTarget() == target)
+            return;
+
+        uint8 points = player->GetComboPoints();
+        if (!points)
+        {
+            points = state->savedPoints;
+            if (!points)
+                return;
+        }
+
+        state->savedPoints = 0;
+        state->savedTimer = 0;
+
+        // For a new target, AddComboPoints sets the count instead of adding to it. It also moves
+        // the points' holder and tells the client, which then shows them on the new target.
+        player->AddComboPoints(target, points);
+    }
+
+    // Runs before the spell's effects and before its last cast check, so a builder or finisher
+    // used on a target that isn't selected (a mouseover or focus macro) finds the points there.
+    void OnSpellCast(Player* player, Spell* spell)
+    {
+        if (!IsEnabledFor(player))
+            return;
+
+        SpellInfo const* spellInfo = spell->GetSpellInfo();
+        ComboState* state = GetState(player);
+
+        if (spellInfo->NeedsComboPoints())
+        {
+            state->lastPoints = 0;
+            state->savedPoints = 0;
+            state->savedTimer = 0;
+            state->builderPending = false;
+            state->finisherTimer = FINISHER_WINDOW;
+            return;
+        }
+
+        if (!spellInfo->HasEffect(SPELL_EFFECT_ADD_COMBO_POINTS))
+            return;
+
+        Unit* target = spell->m_targets.GetUnitTarget();
+        if (!target)
+            return;
+
+        MovePointsTo(player, state, target);
+
+        // A proc like Primal Fury adds a point to the same target before the builder is done;
+        // keep the count from before the builder.
+        if (state->builderPending && state->builderTarget == target->GetGUID())
+            return;
+
+        state->builderPending = true;
+        state->builderBase = player->GetComboTarget() == target ? player->GetComboPoints() : 0;
+        state->builderTarget = target->GetGUID();
+    }
+
+    void OnUpdate(Player* player, uint32 diff)
+    {
+        if (!IsEnabledFor(player))
+            return;
+
+        ComboState* state = GetState(player);
+
+        if (!player->IsAlive())
+        {
+            *state = ComboState();
+            return;
+        }
+
+        state->finisherTimer = state->finisherTimer > diff ? state->finisherTimer - diff : 0;
+
+        if (state->savedTimer)
+        {
+            state->savedTimer = state->savedTimer > diff ? state->savedTimer - diff : 0;
+            if (!state->savedTimer)
+                state->savedPoints = 0;
+        }
+
+        // A builder killed its target: put back the points the death took.
+        if (state->builderPending)
+        {
+            state->builderPending = false;
+
+            Unit* target = ObjectAccessor::GetUnit(*player, state->builderTarget);
+            if (config.catComboPointsKeepAfterKill && state->builderBase && player->GetComboPoints()
+                && player->GetComboTargetGUID() == state->builderTarget && (!target || !target->IsAlive()))
+                player->AddComboPoints(state->builderBase);
+        }
+
+        uint8 const points = player->GetComboPoints();
+
+        if (points)
+        {
+            state->lastPoints = points;
+            state->lastTarget = player->GetComboTargetGUID();
+        }
+        else if (state->lastPoints)
+        {
+            // The points are gone. Keep them only if their target died or despawned; a finisher
+            // or the end of a duel leave the target alive.
+            Unit* target = ObjectAccessor::GetUnit(*player, state->lastTarget);
+            if ((!target || !target->IsAlive()) && !state->finisherTimer && config.catComboPointsKeepAfterKill)
+            {
+                state->savedPoints = state->lastPoints;
+                state->savedTimer = config.catComboPointsKeepAfterKill;
+            }
+
+            state->lastPoints = 0;
+            state->lastTarget.Clear();
+        }
+
+        MovePointsTo(player, state, player->GetSelectedUnit());
     }
 }
 
@@ -535,6 +800,11 @@ public:
         config.formSpeedEnabled         = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.Enable", true);
         config.formSpeedOutOfCombatOnly = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.OutOfCombatOnly", true);
 
+        config.formConsumablesEnabled = sConfigMgr->GetOption<bool>("ForeverDruid.FormConsumables.Enable", true);
+
+        config.catComboPointsEnabled       = sConfigMgr->GetOption<bool>("ForeverDruid.CatComboPoints.Enable", true);
+        config.catComboPointsKeepAfterKill = sConfigMgr->GetOption<uint32>("ForeverDruid.CatComboPoints.KeepAfterKill", 20000);
+
         // mod-mount-scaling's own settings, with its defaults. Without that module these aren't
         // in any config file, so don't log them as missing.
         auto mountOption = [](char const* name, float def) { return sConfigMgr->GetOption<float>(name, def, false); };
@@ -596,6 +866,16 @@ public:
     {
         if (spellId == SPELL_BEAR_FORM || spellId == SPELL_DIRE_BEAR_FORM)
             UpdateSwipe(player);
+    }
+
+    void OnPlayerSpellCast(Player* player, Spell* spell, bool /*skipCheck*/) override
+    {
+        CatComboPoints::OnSpellCast(player, spell);
+    }
+
+    void OnPlayerUpdate(Player* player, uint32 diff) override
+    {
+        CatComboPoints::OnUpdate(player, diff);
     }
 };
 

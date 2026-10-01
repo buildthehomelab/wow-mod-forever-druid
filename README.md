@@ -10,6 +10,10 @@ bear tanking to a 3.3.5 server:
   go with it.
 - **Travel and flight forms follow [mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling)**
   when that module is installed.
+- **Consumables work in Cat Form and Bear Form**, including the stat scrolls and other items the
+  game blocks while shapeshifted.
+- **Cat Form combo points carry over to the next target**, like a rogue's with
+  [mod-forever-rogue](https://github.com/buildthehomelab/wow-mod-forever-rogue).
 
 Everything works on the server alone, but the optional client patch (see below) is strongly
 recommended: without it the client won't let you press Swipe with less than 20 rage, and
@@ -76,6 +80,37 @@ The speed changes as soon as you shift, and when you level up in form. Without m
 (or with `MountScaling.Enable = 0`) nothing changes. `ForeverDruid.FormSpeed.Enable = 0` turns
 it off.
 
+## Consumables in Cat Form and Bear Form
+
+Stock 3.3.5 already lets druids use food, drink, potions, flasks, most elixirs, bandages and
+healthstones in any form. A set of consumables is still blocked while shapeshifted ("Can't do
+that while shapeshifted"): every Scroll of Agility, Strength, Stamina, Intellect, Spirit and
+Protection, the water breathing elixirs, Gift of Arthas, Dreamless Sleep, Drums of Forgotten
+Kings and the Wild, battle standards, Scroll of Recall and some quest and holiday items. With this
+module they work in Cat Form, Bear Form and Dire Bear Form too.
+
+Travel, Aquatic, Moonkin, Tree of Life and the flight forms keep the stock rules, and other
+classes' forms (Ghost Wolf) aren't touched. Buffs from these items don't drop when you shift.
+
+The server finds the items by itself: every consumable whose use spell is blocked while
+shapeshifted, except enchanting scrolls (they cast the enchanter's own spell), quest items that
+cast a class spell, rogue poisons, mounts and disguises. The client checks the same thing before
+it even asks the server, so this needs the client patch: without it the client still refuses.
+The patch's list covers AzerothCore's stock items; a custom consumable needs its spell added to
+`FORM_CONSUMABLE_SPELLS` in `tools/patch-forever-druid-dbc.sh`.
+
+## Cat Form combo points
+
+Combo points work the way [mod-forever-rogue](https://github.com/buildthehomelab/wow-mod-forever-rogue)
+makes them work for rogues, as in WoW Forever. In stock 3.3.5 combo points belong to one target:
+switching targets starts over at zero and killing the target loses them. Now unused combo points
+move to whatever hostile target you select or attack next, with the full count. Points left on a
+target that died wait 20 seconds (`ForeverDruid.CatComboPoints.KeepAfterKill`) for the next
+target. A finisher still uses them up as usual.
+
+No client patch: the server tells the client which target holds the points, so the target frame
+shows them on the new target right away. It works with or without mod-forever-rogue installed.
+
 ## Pulverize
 
 Cataclysm's Pulverize, learned at level 42:
@@ -140,6 +175,11 @@ are added to the world database on the next start.
 | `ForeverDruid.Pulverize.WeaponDamagePercent` | `60` | Hit damage as a percentage of weapon damage. |
 | `ForeverDruid.Pulverize.AttackPowerPerStack` | `0.04` | Extra damage per Lacerate stack, as a share of attack power. |
 | `ForeverDruid.Pulverize.CritPerStack` | `2` | Crit % per Lacerate stack for 10 seconds. `0` for no buff. |
+| `ForeverDruid.FormSpeed.Enable` | `1` | Travel and flight forms follow mod-mount-scaling's speeds. |
+| `ForeverDruid.FormSpeed.OutOfCombatOnly` | `1` | Travel Form gets the mount speed only out of combat. |
+| `ForeverDruid.FormConsumables.Enable` | `1` | Consumables blocked while shapeshifted work in Cat Form and Bear Form. |
+| `ForeverDruid.CatComboPoints.Enable` | `1` | Cat Form combo points carry over to the next target. |
+| `ForeverDruid.CatComboPoints.KeepAfterKill` | `20000` | Milliseconds points from a dead target wait for the next one. |
 
 All of them take effect on `.reload config` (a new Pulverize level applies at each druid's next
 login or level-up). Rage costs, the Frenzied Regeneration rate and the Pulverize numbers are also
@@ -155,13 +195,16 @@ than 20 rage ("Not enough rage"). With 20 or more, Swipe works and costs nothing
 Frenzied Regeneration heals the new amount without the patch, but its tooltip still says 0.3%.
 Pulverize works without the patch, but the client calls it "Test Maul" (Rank 4, Maul's icon and
 an old tooltip), thinks it costs 30 rage (so it won't let you press it with less), puts it in the
-General tab, and doesn't show the crit buff on the buff bar.
+General tab, and doesn't show the crit buff on the buff bar. The blocked consumables stay blocked
+in Cat Form and Bear Form without the patch.
 
 `tools/patch-forever-druid-dbc.sh` changes two client files:
 
 - **Spell.dbc:** the rage cost of all 8 Swipe (Bear) ranks, Frenzied Regeneration's rate,
   Lacerate rank 1's level scaling, and Test Maul (24042) becomes Pulverize (name, `ability_smash` icon, cost, global cooldown,
   tooltip). The unused aura 742 becomes a visible 10 second buff with its own tooltip.
+- **Spell.dbc, consumables:** the use spells of 96 consumables become usable in Cat Form and
+  Bear Form (needed: the client blocks them itself).
 - **SkillLineAbility.dbc:** adds Pulverize to the Feral Combat tab of the spellbook.
 
 ```bash

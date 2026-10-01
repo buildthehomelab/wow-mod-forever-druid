@@ -5,7 +5,8 @@
 #
 # WoW Forever-style bear tanking: Swipe (Bear) costs no rage, Bear Form and Dire Bear Form give
 # rage every time you dodge, Frenzied Regeneration turns rage into more health, and druids learn
-# Cataclysm's Pulverize.
+# Cataclysm's Pulverize. Consumables work in Cat Form and Bear Form, and Cat Form combo points
+# carry over to the next target like a rogue's.
 ########################################
 
 #
@@ -168,3 +169,37 @@ ForeverDruid.FormSpeed.Enable = 1
 #
 
 ForeverDruid.FormSpeed.OutOfCombatOnly = 1
+
+#
+#    ForeverDruid.FormConsumables.Enable
+#        Description: Let druids use the consumables the game data blocks while shapeshifted
+#                     (stat scrolls, water breathing elixirs, drums, battle standards and the like)
+#                     in Cat Form, Bear Form and Dire Bear Form. Food, potions, flasks, elixirs and
+#                     bandages already work in every form. Other forms keep the stock rules. The
+#                     client checks this itself, so it also needs the optional client patch
+#                     (tools/patch-forever-druid-dbc.sh); without it the client still says you
+#                     can't do that while shapeshifted.
+#        Default:     1
+#
+
+ForeverDruid.FormConsumables.Enable = 1
+
+#
+#    ForeverDruid.CatComboPoints.Enable
+#        Description: Cat Form combo points follow the druid from target to target with the full
+#                     count, like mod-forever-rogue does for rogues. With 0 they stay on one target
+#                     and are lost when you attack another or the target dies. No client patch.
+#        Default:     1
+#
+
+ForeverDruid.CatComboPoints.Enable = 1
+
+#
+#    ForeverDruid.CatComboPoints.KeepAfterKill
+#        Description: How long, in milliseconds, combo points left on a target that died wait for
+#                     your next target. 0 loses them when the target dies (switching between
+#                     living targets still carries them).
+#        Default:     20000
+#
+
+ForeverDruid.CatComboPoints.KeepAfterKill = 20000
