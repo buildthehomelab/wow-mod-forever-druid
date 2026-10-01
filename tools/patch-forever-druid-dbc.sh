@@ -9,6 +9,9 @@
 # - Lacerate rank 1: damage that scales with level from 42 to 66, for the tooltip.
 # - Pulverize: turns "Test Maul" (24042) into Pulverize (name, icon, cost, global cooldown,
 #   tooltip) in the Feral Combat tab, and makes its crit buff (742) show on the buff bar.
+# - Consumables in Cat Form and Bear Form: the client blocks items whose spell says "not while
+#   shapeshifted" before it asks the server, so without this scrolls and the like still say you
+#   can't do that while shapeshifted.
 #
 # Usage: tools/patch-forever-druid-dbc.sh <Spell.dbc> <SkillLineAbility.dbc> [output dir]
 #   <Spell.dbc>             3.3.5a Spell.dbc: the client's own, or one another module's script
@@ -20,7 +23,7 @@
 set -euo pipefail
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
-    sed -n '13,18p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '16,21p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
 fi
 
@@ -49,6 +52,24 @@ PULVERIZE_RAGE_COST = 15                 # ForeverDruid.Pulverize.RageCost
 PULVERIZE_WEAPON_DAMAGE_PERCENT = 60     # ForeverDruid.Pulverize.WeaponDamagePercent
 PULVERIZE_ATTACK_POWER_PER_STACK = 0.04  # ForeverDruid.Pulverize.AttackPowerPerStack
 PULVERIZE_CRIT_PER_STACK = 2             # ForeverDruid.Pulverize.CritPerStack
+
+# The on-use spells of the stock consumables that ForeverDruid.FormConsumables makes usable in Cat
+# Form and Bear Form. The server finds them in item_template by itself (IsFormConsumableSpell in
+# src/ForeverDruid.cpp); this is what those rules give for AzerothCore's stock items and this
+# client's Spell.dbc. A custom consumable whose spell is blocked while shapeshifted needs its spell
+# added here.
+FORM_CONSUMABLE_SPELLS = [
+    700, 1090, 7108, 7178, 7285, 7932, 7933, 8070, 8091, 8094, 8095, 8096, 8097, 8098, 8099, 8100,
+    8101, 8112, 8113, 8114, 8115, 8116, 8117, 8118, 8119, 8120, 8277, 9976, 10738, 11371, 11403,
+    12174, 12175, 12176, 12177, 12178, 12179, 13424, 15822, 16375, 16537, 22807, 23034, 23035,
+    23538, 23539, 23786, 24360, 26373, 28504, 31920, 33077, 33078, 33079, 33080, 33081, 33082,
+    35129, 38543, 38606, 39948, 43194, 43195, 43196, 43197, 43198, 43199, 44212, 44235, 44467,
+    48099, 48100, 48101, 48102, 48103, 48104, 48129, 48359, 48719, 49512, 53753, 58448, 58449,
+    58450, 58451, 58452, 58453, 58493, 60320, 60321, 65460, 69378, 69381, 71087, 71466, 74890,
+]
+FORM_MASK_CAT_AND_BEAR = (1 << (1 - 1)) | (1 << (5 - 1)) | (1 << (8 - 1))  # FORM_CAT, FORM_BEAR, FORM_DIREBEAR
+SPELL_ATTR0_NOT_SHAPESHIFTED = 0x10000
+SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED = 0x80000
 
 POWER_RAGE = 1
 ICON_ABILITY_SMASH = 102                 # SpellIcon.dbc: Pulverize's icon
@@ -118,6 +139,8 @@ def float32(value):
 # --- Spell.dbc -------------------------------------------------------------------------------
 SPELL_FIELDS = 234
 ATTRIBUTES = 4                # m_attributes
+ATTRIBUTES_EX2 = 6            # m_attributesExB
+STANCES = 12                  # m_shapeshiftMask
 RECOVERY_TIME = 29            # m_recoveryTime
 PROC_FLAGS = 34               # m_procTypeMask
 PROC_CHANCE = 35              # m_procChance
@@ -200,6 +223,16 @@ row[EFFECT_TRIGGER_SPELL_0] = 0
 row[DESCRIPTION_ENUS] = add_string(spell_strings, PULVERIZE_BUFF_TOOLTIP)
 row[TOOLTIP_ENUS] = add_string(spell_strings, PULVERIZE_BUFF_TOOLTIP)
 print(f"  Spell {SPELL_PULVERIZE_BUFF}: visible 10 sec crit buff")
+
+# Same as ApplyFormConsumables: add the feral forms to the spell's forms, and let it be used
+# outside a form too. Other forms still block it.
+for spell_id in FORM_CONSUMABLE_SPELLS:
+    row = spell(spell_id)
+    if not row[ATTRIBUTES] & SPELL_ATTR0_NOT_SHAPESHIFTED:
+        sys.exit(f"{spell_src}: spell {spell_id} isn't blocked while shapeshifted; is this a 3.3.5a Spell.dbc?")
+    row[STANCES] |= FORM_MASK_CAT_AND_BEAR
+    row[ATTRIBUTES_EX2] |= SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED
+print(f"  {len(FORM_CONSUMABLE_SPELLS)} consumable spells: usable in Cat Form and Bear Form")
 
 # --- SkillLineAbility.dbc: put Pulverize in the Feral Combat tab ------------------------------
 SKILL_FIELDS = 14
