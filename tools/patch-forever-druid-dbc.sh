@@ -12,6 +12,7 @@
 # - Consumables in Cat Form and Bear Form: the client blocks items whose spell says "not while
 #   shapeshifted" before it asks the server, so without this scrolls and the like still say you
 #   can't do that while shapeshifted.
+# - Mining in every druid form: the same client check, on Mining and creature mining/salvage.
 #
 # Usage: tools/patch-forever-druid-dbc.sh <Spell.dbc> <SkillLineAbility.dbc> [output dir]
 #   <Spell.dbc>             3.3.5a Spell.dbc: the client's own, or one another module's script
@@ -23,7 +24,7 @@
 set -euo pipefail
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
-    sed -n '16,21p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '17,22p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
 fi
 
@@ -68,6 +69,15 @@ FORM_CONSUMABLE_SPELLS = [
     58450, 58451, 58452, 58453, 58493, 60320, 60321, 65460, 69378, 69381, 71087, 71466, 74890,
 ]
 FORM_MASK_CAT_AND_BEAR = (1 << (1 - 1)) | (1 << (5 - 1)) | (1 << (8 - 1))  # FORM_CAT, FORM_BEAR, FORM_DIREBEAR
+
+# Mining (every rank), mining a creature's corpse and Engineering salvage, which
+# ForeverDruid.FormGathering makes usable in every druid form. Must match FORM_GATHERING_SPELLS in
+# src/ForeverDruid.cpp.
+FORM_GATHERING_SPELLS = [2575, 2576, 3564, 10248, 29354, 50310, 32606, 49383]
+# FORM_CAT, FORM_TREE, FORM_TRAVEL, FORM_AQUA, FORM_BEAR, FORM_DIREBEAR, FORM_FLIGHT_EPIC,
+# FORM_FLIGHT, FORM_MOONKIN
+FORM_MASK_DRUID = sum(1 << (form - 1) for form in (1, 2, 3, 4, 5, 8, 27, 29, 31))
+FORM_MASK_TREE = 1 << (2 - 1)
 SPELL_ATTR0_NOT_SHAPESHIFTED = 0x10000
 SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED = 0x80000
 
@@ -141,6 +151,7 @@ SPELL_FIELDS = 234
 ATTRIBUTES = 4                # m_attributes
 ATTRIBUTES_EX2 = 6            # m_attributesExB
 STANCES = 12                  # m_shapeshiftMask
+STANCES_NOT = 14              # m_shapeshiftExclude
 RECOVERY_TIME = 29            # m_recoveryTime
 PROC_FLAGS = 34               # m_procTypeMask
 PROC_CHANCE = 35              # m_procChance
@@ -233,6 +244,17 @@ for spell_id in FORM_CONSUMABLE_SPELLS:
     row[STANCES] |= FORM_MASK_CAT_AND_BEAR
     row[ATTRIBUTES_EX2] |= SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED
 print(f"  {len(FORM_CONSUMABLE_SPELLS)} consumable spells: usable in Cat Form and Bear Form")
+
+# Same as ApplyFormGathering. Only adds the druid forms, so mod-forever-shaman's script can add
+# Ghost Wolf to the same spells before or after this one.
+for spell_id in FORM_GATHERING_SPELLS:
+    row = spell(spell_id)
+    if not row[ATTRIBUTES] & SPELL_ATTR0_NOT_SHAPESHIFTED:
+        sys.exit(f"{spell_src}: spell {spell_id} isn't blocked while shapeshifted; is this a 3.3.5a Spell.dbc?")
+    row[STANCES] |= FORM_MASK_DRUID
+    row[STANCES_NOT] &= ~FORM_MASK_TREE
+    row[ATTRIBUTES_EX2] |= SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED
+print(f"  {len(FORM_GATHERING_SPELLS)} mining spells: usable in every druid form")
 
 # --- SkillLineAbility.dbc: put Pulverize in the Feral Combat tab ------------------------------
 SKILL_FIELDS = 14

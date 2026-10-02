@@ -23,6 +23,9 @@
  *   shapeshifted: stat scrolls (Scroll of Agility and the like), water breathing elixirs, Gift of
  *   Arthas, drums, battle standards and the rest. The other forms keep the stock rules.
  *
+ * - Mining works in every druid form. Herb Gathering and Skinning already do in stock 3.3.5, but
+ *   Mining (and mining or salvaging a creature's corpse) is blocked while shapeshifted.
+ *
  * - Cat Form combo points work like mod-forever-rogue's rogue combo points: unused points follow
  *   the druid to the next target, with the full count, and points left on a target that died wait
  *   a little while for the next one.
@@ -127,6 +130,7 @@ namespace
         bool formSpeedEnabled = true;
         bool formSpeedOutOfCombatOnly = true;
         bool formConsumablesEnabled = true;
+        bool formGatheringEnabled = true;
         bool catComboPointsEnabled = true;
         uint32 catComboPointsKeepAfterKill = 20000;
     };
@@ -361,6 +365,50 @@ namespace
         }
     }
 
+    // The gathering spells the game data blocks while shapeshifted: every rank of Mining, mining
+    // a creature's corpse (32606) and Engineering salvage (49383). Herb Gathering and Skinning
+    // don't say "not while shapeshifted", so they already work in every form. Must match
+    // tools/patch-forever-druid-dbc.sh.
+    constexpr std::array<uint32, 8> FORM_GATHERING_SPELLS = { 2575, 2576, 3564, 10248, 29354, 50310, 32606, 49383 };
+
+    // Every druid form as a spell's form mask (bit form - 1).
+    constexpr uint32 FORM_MASK_DRUID = (1 << (FORM_CAT - 1)) | (1 << (FORM_TREE - 1)) | (1 << (FORM_TRAVEL - 1))
+        | (1 << (FORM_AQUA - 1)) | (1 << (FORM_BEAR - 1)) | (1 << (FORM_DIREBEAR - 1)) | (1 << (FORM_FLIGHT_EPIC - 1))
+        | (1 << (FORM_FLIGHT - 1)) | (1 << (FORM_MOONKIN - 1));
+    constexpr uint32 FORM_MASK_TREE = 1 << (FORM_TREE - 1);
+
+    // Mining's "not in Tree of Life" bit, as the game data has it.
+    std::unordered_map<uint32, uint32> stockGatheringStancesNot;
+
+    // Let druids mine in any form, the same way as the consumables above: the druid forms go in
+    // the spell's form list, with "also outside a form". Mining also names Tree of Life as a form
+    // it can't be used in, so that goes too.
+    //
+    // mod-forever-shaman adds Ghost Wolf to the same spells, so this only adds and removes its own
+    // forms, and never takes "also outside a form" off again: with no forms listed it does nothing.
+    void ApplyFormGathering()
+    {
+        for (uint32 spellId : FORM_GATHERING_SPELLS)
+        {
+            SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(spellId));
+            if (!spellInfo)
+                continue;
+
+            uint32 const stockStancesNot = stockGatheringStancesNot.try_emplace(spellId, spellInfo->StancesNot).first->second;
+            if (config.formGatheringEnabled)
+            {
+                spellInfo->Stances |= FORM_MASK_DRUID;
+                spellInfo->StancesNot = stockStancesNot & ~FORM_MASK_TREE;
+                spellInfo->AttributesEx2 |= SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED;
+            }
+            else
+            {
+                spellInfo->Stances &= ~FORM_MASK_DRUID;
+                spellInfo->StancesNot = stockStancesNot;
+            }
+        }
+    }
+
     // Runs once the spells are loaded, and again when the config is reloaded.
     void ApplySpellChanges()
     {
@@ -369,6 +417,7 @@ namespace
         ApplyLacerateScaling();
         ApplyPulverizeSpellData();
         ApplyFormConsumables();
+        ApplyFormGathering();
     }
 
     // Teach Swipe (Bear) rank 1 to a druid who knows Bear Form (or Dire Bear Form) but no rank of
@@ -801,6 +850,7 @@ public:
         config.formSpeedOutOfCombatOnly = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.OutOfCombatOnly", true);
 
         config.formConsumablesEnabled = sConfigMgr->GetOption<bool>("ForeverDruid.FormConsumables.Enable", true);
+        config.formGatheringEnabled   = sConfigMgr->GetOption<bool>("ForeverDruid.FormGathering.Enable", true);
 
         config.catComboPointsEnabled       = sConfigMgr->GetOption<bool>("ForeverDruid.CatComboPoints.Enable", true);
         config.catComboPointsKeepAfterKill = sConfigMgr->GetOption<uint32>("ForeverDruid.CatComboPoints.KeepAfterKill", 20000);

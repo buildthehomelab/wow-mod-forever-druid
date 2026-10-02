@@ -185,6 +185,18 @@ ForeverDruid.FormSpeed.OutOfCombatOnly = 1
 ForeverDruid.FormConsumables.Enable = 1
 
 #
+#    ForeverDruid.FormGathering.Enable
+#        Description: Let druids mine (and mine or salvage creature corpses) in every form. Herb
+#                     Gathering and Skinning already work in every form. The client checks this
+#                     itself, so it also needs the optional client patch
+#                     (tools/patch-forever-druid-dbc.sh); without it the client still says you
+#                     can't do that while shapeshifted.
+#        Default:     1
+#
+
+ForeverDruid.FormGathering.Enable = 1
+
+#
 #    ForeverDruid.CatComboPoints.Enable
 #        Description: Cat Form combo points follow the druid from target to target with the full
 #                     count, like mod-forever-rogue does for rogues. With 0 they stay on one target
