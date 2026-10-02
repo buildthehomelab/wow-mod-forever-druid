@@ -12,6 +12,7 @@ bear tanking to a 3.3.5 server:
   when that module is installed.
 - **Consumables work in Cat Form and Bear Form**, including the stat scrolls and other items the
   game blocks while shapeshifted.
+- **Mining works in every form**, like Herb Gathering and Skinning already do.
 - **Cat Form combo points carry over to the next target**, like a rogue's with
   [mod-forever-rogue](https://github.com/buildthehomelab/wow-mod-forever-rogue).
 
@@ -99,6 +100,17 @@ it even asks the server, so this needs the client patch: without it the client s
 The patch's list covers AzerothCore's stock items; a custom consumable needs its spell added to
 `FORM_CONSUMABLE_SPELLS` in `tools/patch-forever-druid-dbc.sh`.
 
+## Mining in every form
+
+Stock 3.3.5 lets druids gather herbs and skin in any form, but Mining says "Can't do that while
+shapeshifted" (and Tree of Life is blocked by name on top). With this module every rank of Mining
+works in Cat, Bear, Dire Bear, Travel, Aquatic, Moonkin, Tree of Life and both flight forms, and
+so do mining a creature's corpse and Engineering salvage. You stay in your form.
+
+The client checks this before it asks the server, so it needs the client patch: without it the
+client still refuses. [mod-forever-shaman](https://github.com/buildthehomelab/wow-mod-forever-shaman)
+does the same for Ghost Wolf; the two patch scripts can run on the same Spell.dbc in either order.
+
 ## Cat Form combo points
 
 Combo points work the way [mod-forever-rogue](https://github.com/buildthehomelab/wow-mod-forever-rogue)
@@ -178,6 +190,7 @@ are added to the world database on the next start.
 | `ForeverDruid.FormSpeed.Enable` | `1` | Travel and flight forms follow mod-mount-scaling's speeds. |
 | `ForeverDruid.FormSpeed.OutOfCombatOnly` | `1` | Travel Form gets the mount speed only out of combat. |
 | `ForeverDruid.FormConsumables.Enable` | `1` | Consumables blocked while shapeshifted work in Cat Form and Bear Form. |
+| `ForeverDruid.FormGathering.Enable` | `1` | Mining works in every druid form. |
 | `ForeverDruid.CatComboPoints.Enable` | `1` | Cat Form combo points carry over to the next target. |
 | `ForeverDruid.CatComboPoints.KeepAfterKill` | `20000` | Milliseconds points from a dead target wait for the next one. |
 
@@ -196,7 +209,7 @@ Frenzied Regeneration heals the new amount without the patch, but its tooltip st
 Pulverize works without the patch, but the client calls it "Test Maul" (Rank 4, Maul's icon and
 an old tooltip), thinks it costs 30 rage (so it won't let you press it with less), puts it in the
 General tab, and doesn't show the crit buff on the buff bar. The blocked consumables stay blocked
-in Cat Form and Bear Form without the patch.
+in Cat Form and Bear Form without the patch, and so does Mining in every form.
 
 `tools/patch-forever-druid-dbc.sh` changes two client files:
 
@@ -205,6 +218,8 @@ in Cat Form and Bear Form without the patch.
   tooltip). The unused aura 742 becomes a visible 10 second buff with its own tooltip.
 - **Spell.dbc, consumables:** the use spells of 96 consumables become usable in Cat Form and
   Bear Form (needed: the client blocks them itself).
+- **Spell.dbc, mining:** Mining (all 6 ranks), creature mining and Engineering salvage become
+  usable in every druid form (needed: the client blocks them itself).
 - **SkillLineAbility.dbc:** adds Pulverize to the Feral Combat tab of the spellbook.
 
 ```bash
