@@ -152,7 +152,8 @@ ForeverDruid.Pulverize.CritPerStack = 2
 #                     Apprentice or Journeyman Riding, flight speed from Expert or Artisan Riding.
 #                     The numbers come from mod-mount-scaling's own MountScaling.* settings. A
 #                     druid without the riding skill for it keeps the form's stock speed (Travel
-#                     Form 40%, Flight Form 150%, Swift Flight Form 280%). Does nothing without
+#                     Form 40%, Flight Form 150%, Swift Flight Form 280%). Indoors Travel Form is
+#                     always the stock 40%, and it never drops below 40%. Does nothing without
 #                     mod-mount-scaling or with MountScaling.Enable = 0.
 #        Default:     1
 #
