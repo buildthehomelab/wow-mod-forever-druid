@@ -79,7 +79,13 @@ Travel Form only gets the mount speed **out of combat**. Entering combat drops i
 mount can't be used in combat at all). `ForeverDruid.FormSpeed.OutOfCombatOnly = 0` keeps the
 mount speed in combat too. The flight forms (which can't be cast in combat) keep their speed.
 
-The speed changes as soon as you shift, and when you level up in form. Without mod-mount-scaling
+Indoors Travel Form is always the stock 40%, in or out of combat, since mounts can't go indoors
+either, and it never drops below 40% even when the mount curve is lower at low levels. Travel
+Form is still outdoors only as in stock (walking inside cancels it), so the indoor rule only
+matters where the game lets it stay on indoors.
+
+The speed changes as soon as you shift, when you level up in form, and when you walk indoors or
+outdoors. Without mod-mount-scaling
 (or with `MountScaling.Enable = 0`) nothing changes. `ForeverDruid.FormSpeed.Enable = 0` turns
 it off.
 

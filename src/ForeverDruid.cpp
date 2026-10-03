@@ -15,8 +15,9 @@
  *   66 so it isn't too strong early.
  *
  * - With mod-mount-scaling installed, Travel Form, Flight Form and Swift Flight Form follow its
- *   level-scaled mount speeds, like a mount would. Travel Form only out of combat: in combat it's
- *   the stock 40%, since a mount can't be used in combat at all.
+ *   level-scaled mount speeds, like a mount would. Travel Form only outdoors and out of combat:
+ *   in combat and indoors it's the stock 40%, since a mount can't be used there either. It never
+ *   drops below 40%.
  *
  * - Consumables work in Cat Form, Bear Form and Dire Bear Form. Food, potions, flasks, elixirs
  *   and bandages already do in stock 3.3.5; this adds the ones the game data blocks while
@@ -624,9 +625,14 @@ namespace FormSpeed
             int32 speed = 0;
             if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_SPEED)
             {
-                // Travel Form goes back to its own speed (40%) while the druid is in combat.
-                if (aura->GetId() == SPELL_TRAVEL_FORM_PASSIVE && config.formSpeedOutOfCombatOnly && player->IsInCombat())
-                    speed = effect->GetSpellInfo()->Effects[i].CalcValue();
+                // Travel Form keeps its own speed (40%) in combat and indoors, since a mount can't
+                // be used there either. Outdoors and out of combat it scales, but never below 40%.
+                if (aura->GetId() == SPELL_TRAVEL_FORM_PASSIVE)
+                {
+                    int32 const stockSpeed = effect->GetSpellInfo()->Effects[i].CalcValue();
+                    bool const scaled = !(config.formSpeedOutOfCombatOnly && player->IsInCombat()) && player->IsOutdoors();
+                    speed = scaled ? std::max(stockSpeed, Ground(player)) : stockSpeed;
+                }
                 else
                     speed = Ground(player);
             }
@@ -645,8 +651,8 @@ namespace FormSpeed
         }
     }
 
-    // After a level up, or entering or leaving combat, for a druid who is in a travel form right
-    // now. Other changes (a new riding skill, a config reload) take effect the next time they
+    // After a level up, entering or leaving combat, or walking indoors or outdoors, for a druid
+    // who is in a travel form right now. Other changes (a new riding skill, a config reload) take effect the next time they
     // shift.
     void Update(Player* player)
     {
@@ -1037,9 +1043,15 @@ public:
         CatComboPoints::OnSpellCast(player, spell);
     }
 
+    // Walking into or out of a building. The core keeps IsOutdoors() up to date as the player
+    // moves, and FormSpeed only changes the aura when the speed differs, so checking every update
+    // is cheap.
     void OnPlayerUpdate(Player* player, uint32 diff) override
     {
         CatComboPoints::OnUpdate(player, diff);
+
+        if (player->getClass() == CLASS_DRUID)
+            FormSpeed::Update(player);
     }
 };
 
