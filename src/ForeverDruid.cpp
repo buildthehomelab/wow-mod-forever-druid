@@ -30,6 +30,11 @@
  *   the druid to the next target, with the full count, and points left on a target that died wait
  *   a little while for the next one.
  *
+ * - The Manual Crowd Pummeler (9449, Gnomeregan) becomes Season of Discovery's Automatic Crowd
+ *   Pummeler (this used to be mod-automatic-crowd-pummeler): its Haste has no charges and a
+ *   3 minute cooldown instead, only Paladins, Shamans and Druids can equip it, and it gives
+ *   +69 attack power in Cat, Bear and Dire Bear Form.
+ *
  * The rage costs and the Frenzied Regeneration rate are changed in the server's copy of the spell
  * data. The client reads rage costs from its own Spell.dbc and won't let you press an ability with
  * less rage than that, so a free Swipe needs the optional client patch
@@ -50,6 +55,7 @@
 #include "Config.h"
 #include "DataMap.h"
 #include "DBCStores.h"
+#include "Log.h"
 #include "ObjectAccessor.h"
 #include "ObjectMgr.h"
 #include "Player.h"
@@ -67,6 +73,7 @@
 #include <cmath>
 #include <optional>
 #include <unordered_map>
+#include <vector>
 
 namespace
 {
@@ -133,6 +140,10 @@ namespace
         bool formGatheringEnabled = true;
         bool catComboPointsEnabled = true;
         uint32 catComboPointsKeepAfterKill = 20000;
+        bool crowdPummelerEnabled = true;
+        uint32 crowdPummelerCooldownSeconds = 180;
+        bool crowdPummelerRestrictClasses = true;
+        uint32 crowdPummelerFeralAttackPower = 69;
     };
 
     // mod-mount-scaling's settings, read from its own config file (MountScaling.*). enabled is
@@ -407,6 +418,102 @@ namespace
                 spellInfo->StancesNot = stockStancesNot;
             }
         }
+    }
+
+    constexpr uint32 ITEM_CROWD_PUMMELER        = 9449;
+    constexpr uint32 SPELL_CROWD_PUMMELER_HASTE = 13494;
+    // "Attack Power - Feral (+0070)", a passive no item uses in 3.3.5 (feral attack power comes
+    // from weapon DPS there). Must match tools/patch-forever-druid-dbc.sh.
+    constexpr uint32 SPELL_CROWD_PUMMELER_FERAL_AP = 33116;
+
+    constexpr uint32 CROWD_PUMMELER_CLASSES = (1 << (CLASS_PALADIN - 1)) | (1 << (CLASS_SHAMAN - 1))
+        | (1 << (CLASS_DRUID - 1));
+
+    // Turn the Manual Crowd Pummeler into Season of Discovery's Automatic Crowd Pummeler: Haste
+    // with no charges and a cooldown, Paladin / Shaman / Druid only, and an equip bonus to attack
+    // power in Cat, Bear and Dire Bear Form.
+    //
+    // The item template is changed in memory rather than in SQL: mod-individual-progression sets
+    // this item back to its vanilla 3 charges in its own world SQL, and the DB updater re-runs
+    // that file whenever IP changes it, which would silently undo an SQL update. The core builds
+    // item query answers from the in-memory template, so tooltips, class checks and charge use all
+    // follow the patched values. Runs once at startup.
+    //
+    // The attack power is an equip spell limited to the three forms. The core casts and removes
+    // such spells on every form change (Player::UpdateEquipSpellsAtFormChange). The stock spell
+    // also lists Moonkin Form and gives 70, so the module sets its forms and amount.
+    void ApplyCrowdPummeler()
+    {
+        if (!config.crowdPummelerEnabled)
+            return;
+
+        // GetItemTemplate() hands out a const pointer; the fast store holds the same objects.
+        std::vector<ItemTemplate*> const* store = sObjectMgr->GetItemTemplateStoreFast();
+        ItemTemplate* proto = ITEM_CROWD_PUMMELER < store->size() ? (*store)[ITEM_CROWD_PUMMELER] : nullptr;
+        if (!proto)
+        {
+            LOG_ERROR("module", "mod-forever-druid: item {} is missing from item_template, Crowd Pummeler unchanged",
+                ITEM_CROWD_PUMMELER);
+            return;
+        }
+
+        // Find the item's spells instead of assuming slots, in case a DB edit moved them.
+        _Spell* haste = nullptr;
+        _Spell* freeSlot = nullptr;
+        for (_Spell& spell : proto->Spells)
+        {
+            if (spell.SpellId == int32(SPELL_CROWD_PUMMELER_HASTE) && spell.SpellTrigger == ITEM_SPELLTRIGGER_ON_USE)
+                haste = &spell;
+            else if (!freeSlot && spell.SpellId <= 0)
+                freeSlot = &spell;
+        }
+
+        if (!haste)
+        {
+            LOG_ERROR("module", "mod-forever-druid: item {} has no on-use spell {}, Crowd Pummeler unchanged",
+                ITEM_CROWD_PUMMELER, SPELL_CROWD_PUMMELER_HASTE);
+            return;
+        }
+
+        proto->Name1       = "Automatic Crowd Pummeler";
+        proto->Description = "A variety of improvements were made to improve the usability of this year's model.";
+
+        // 0 charges = the core never counts or consumes charges, including on copies players
+        // already own that still have charges stored on them.
+        haste->SpellCharges          = 0;
+        haste->SpellCooldown         = int32(config.crowdPummelerCooldownSeconds * IN_MILLISECONDS);
+        haste->SpellCategoryCooldown = -1;
+
+        if (config.crowdPummelerRestrictClasses)
+            proto->AllowableClass = CROWD_PUMMELER_CLASSES;
+
+        uint32 feralAttackPower = 0;
+        if (config.crowdPummelerFeralAttackPower)
+        {
+            SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(SPELL_CROWD_PUMMELER_FERAL_AP));
+            if (!spellInfo || !freeSlot)
+                LOG_ERROR("module", "mod-forever-druid: no {} for the Crowd Pummeler's feral attack power, left out",
+                    spellInfo ? "free spell slot on the item" : "spell 33116");
+            else
+            {
+                // The value is the base points plus 1 (the effect's die has one side).
+                spellInfo->Stances = FORM_MASK_CAT_AND_BEAR;
+                spellInfo->Effects[EFFECT_0].BasePoints = int32(config.crowdPummelerFeralAttackPower) - 1;
+
+                freeSlot->SpellId               = int32(SPELL_CROWD_PUMMELER_FERAL_AP);
+                freeSlot->SpellTrigger          = ITEM_SPELLTRIGGER_ON_EQUIP;
+                freeSlot->SpellCharges          = 0;
+                freeSlot->SpellPPMRate          = 0.0f;
+                freeSlot->SpellCooldown         = -1;
+                freeSlot->SpellCategory         = 0;
+                freeSlot->SpellCategoryCooldown = -1;
+                feralAttackPower = config.crowdPummelerFeralAttackPower;
+            }
+        }
+
+        LOG_INFO("module", "mod-forever-druid: item {} is now the Automatic Crowd Pummeler (unlimited charges, {}s cooldown, "
+            "classes mask {:#x}, +{} attack power in Cat/Bear/Dire Bear Form)",
+            ITEM_CROWD_PUMMELER, config.crowdPummelerCooldownSeconds, proto->AllowableClass, feralAttackPower);
     }
 
     // Runs once the spells are loaded, and again when the config is reloaded.
@@ -855,6 +962,11 @@ public:
         config.catComboPointsEnabled       = sConfigMgr->GetOption<bool>("ForeverDruid.CatComboPoints.Enable", true);
         config.catComboPointsKeepAfterKill = sConfigMgr->GetOption<uint32>("ForeverDruid.CatComboPoints.KeepAfterKill", 20000);
 
+        config.crowdPummelerEnabled          = sConfigMgr->GetOption<bool>("ForeverDruid.CrowdPummeler.Enable", true);
+        config.crowdPummelerCooldownSeconds  = sConfigMgr->GetOption<uint32>("ForeverDruid.CrowdPummeler.CooldownSeconds", 180);
+        config.crowdPummelerRestrictClasses  = sConfigMgr->GetOption<bool>("ForeverDruid.CrowdPummeler.RestrictClasses", true);
+        config.crowdPummelerFeralAttackPower = sConfigMgr->GetOption<uint32>("ForeverDruid.CrowdPummeler.FeralAttackPower", 69);
+
         // mod-mount-scaling's own settings, with its defaults. Without that module these aren't
         // in any config file, so don't log them as missing.
         auto mountOption = [](char const* name, float def) { return sConfigMgr->GetOption<float>(name, def, false); };
@@ -879,6 +991,8 @@ public:
     void OnBeforeWorldInitialized() override
     {
         ApplySpellChanges();
+        // Item changes only here: the item templates are loaded once, and a reload can't redo them.
+        ApplyCrowdPummeler();
     }
 };
 

@@ -13,6 +13,8 @@
 #   shapeshifted" before it asks the server, so without this scrolls and the like still say you
 #   can't do that while shapeshifted.
 # - Mining in every druid form: the same client check, on Mining and creature mining/salvage.
+# - Automatic Crowd Pummeler: its equip bonus (spell 33116) reads "+69 Attack Power in Cat, Bear,
+#   and Dire Bear forms only." instead of "+70 ... and Moonkin forms".
 #
 # Usage: tools/patch-forever-druid-dbc.sh <Spell.dbc> <SkillLineAbility.dbc> [output dir]
 #   <Spell.dbc>             3.3.5a Spell.dbc: the client's own, or one another module's script
@@ -78,6 +80,11 @@ FORM_GATHERING_SPELLS = [2575, 2576, 3564, 10248, 29354, 50310, 32606, 49383]
 # FORM_FLIGHT, FORM_MOONKIN
 FORM_MASK_DRUID = sum(1 << (form - 1) for form in (1, 2, 3, 4, 5, 8, 27, 29, 31))
 FORM_MASK_TREE = 1 << (2 - 1)
+
+# The Automatic Crowd Pummeler's equip bonus, "Attack Power - Feral (+0070)" in the stock client.
+SPELL_CROWD_PUMMELER_FERAL_AP = 33116
+CROWD_PUMMELER_FERAL_ATTACK_POWER = 69   # ForeverDruid.CrowdPummeler.FeralAttackPower
+SPELL_AURA_MOD_ATTACK_POWER = 99
 SPELL_ATTR0_NOT_SHAPESHIFTED = 0x10000
 SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED = 0x80000
 
@@ -255,6 +262,16 @@ for spell_id in FORM_GATHERING_SPELLS:
     row[STANCES_NOT] &= ~FORM_MASK_TREE
     row[ATTRIBUTES_EX2] |= SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED
 print(f"  {len(FORM_GATHERING_SPELLS)} mining spells: usable in every druid form")
+
+# Same as ApplyCrowdPummeler: Cat, Bear and Dire Bear Form only (the stock spell has Moonkin
+# too), and the configured amount. The item tooltip shows "Equip: " and this description.
+row = spell(SPELL_CROWD_PUMMELER_FERAL_AP)
+if row[EFFECT_AURA_0] != SPELL_AURA_MOD_ATTACK_POWER:
+    sys.exit(f"{spell_src}: spell {SPELL_CROWD_PUMMELER_FERAL_AP} isn't an attack power aura; is this a 3.3.5a Spell.dbc?")
+row[STANCES] = FORM_MASK_CAT_AND_BEAR
+row[EFFECT_BASE_POINTS_0] = int32(CROWD_PUMMELER_FERAL_ATTACK_POWER - 1)
+row[DESCRIPTION_ENUS] = add_string(spell_strings, "+$s1 Attack Power in Cat, Bear, and Dire Bear forms only.")
+print(f"  Spell {SPELL_CROWD_PUMMELER_FERAL_AP}: +{CROWD_PUMMELER_FERAL_ATTACK_POWER} attack power in Cat, Bear and Dire Bear Form")
 
 # --- SkillLineAbility.dbc: put Pulverize in the Feral Combat tab ------------------------------
 SKILL_FIELDS = 14

@@ -215,3 +215,46 @@ ForeverDruid.CatComboPoints.Enable = 1
 #
 
 ForeverDruid.CatComboPoints.KeepAfterKill = 20000
+
+#
+#    ForeverDruid.CrowdPummeler.Enable
+#        Description: Turn the Manual Crowd Pummeler (item 9449, Gnomeregan) into Season of
+#                     Discovery's Automatic Crowd Pummeler: Haste with unlimited uses on a
+#                     cooldown, and the settings below. Stats, damage and the drop are unchanged.
+#                     0 = leave item 9449 exactly as the world DB has it. Applied at startup;
+#                     these settings need a worldserver restart. Replaces
+#                     mod-automatic-crowd-pummeler: don't run both.
+#        Default:     1
+#
+
+ForeverDruid.CrowdPummeler.Enable = 1
+
+#
+#    ForeverDruid.CrowdPummeler.CooldownSeconds
+#        Description: Cooldown of the Haste use effect. The effect lasts 30 seconds, so 30 or less
+#                     means permanent uptime. Season of Discovery uses 3 minutes.
+#        Default:     180
+#
+
+ForeverDruid.CrowdPummeler.CooldownSeconds = 180
+
+#
+#    ForeverDruid.CrowdPummeler.RestrictClasses
+#        Description: 1 = only Paladins, Shamans and Druids can equip it (as in Season of
+#                     Discovery). 0 = keep the DB's class list (normally every class).
+#        Default:     1
+#
+
+ForeverDruid.CrowdPummeler.RestrictClasses = 1
+
+#
+#    ForeverDruid.CrowdPummeler.FeralAttackPower
+#        Description: "Equip: +N Attack Power in Cat, Bear, and Dire Bear forms only." 0 = no
+#                     equip bonus. The tooltip comes from the optional client patch
+#                     (tools/patch-forever-druid-dbc.sh, CROWD_PUMMELER_FERAL_ATTACK_POWER); without
+#                     it the tooltip says +70 and lists Moonkin, but the bonus is still N in the
+#                     three forms only.
+#        Default:     69
+#
+
+ForeverDruid.CrowdPummeler.FeralAttackPower = 69

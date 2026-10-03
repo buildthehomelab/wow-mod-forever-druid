@@ -15,6 +15,8 @@ bear tanking to a 3.3.5 server:
 - **Mining works in every form**, like Herb Gathering and Skinning already do.
 - **Cat Form combo points carry over to the next target**, like a rogue's with
   [mod-forever-rogue](https://github.com/buildthehomelab/wow-mod-forever-rogue).
+- **The Automatic Crowd Pummeler** from Season of Discovery replaces the Manual Crowd Pummeler,
+  with +69 attack power in Cat, Bear and Dire Bear Form.
 
 Everything works on the server alone, but the optional client patch (see below) is strongly
 recommended: without it the client won't let you press Swipe with less than 20 rage, and
@@ -123,6 +125,41 @@ target. A finisher still uses them up as usual.
 No client patch: the server tells the client which target holds the points, so the target frame
 shows them on the new target right away. It works with or without mod-forever-rogue installed.
 
+## Automatic Crowd Pummeler
+
+The Manual Crowd Pummeler (item 9449, from Crowd Pummeler 9-60 in Gnomeregan) becomes Season of
+Discovery's [Automatic Crowd Pummeler](https://www.wowhead.com/classic/news/gnomeregan-raid-item-datamined-in-wow-classic-season-of-discovery-336486).
+This used to be its own module, mod-automatic-crowd-pummeler; remove that one when you install
+this.
+
+| | Manual Crowd Pummeler (with mod-individual-progression) | With this module |
+|---|---|---|
+| Name | Manual Crowd Pummeler | Automatic Crowd Pummeler |
+| Use: Haste | 3 charges | unlimited, 3 min cooldown |
+| Classes | all | Paladin, Shaman, Druid |
+| Equip | none | +69 Attack Power in Cat, Bear, and Dire Bear forms only |
+| Stats, damage, level, drop | unchanged | unchanged |
+
+Item 9449 is changed in place, so the drop table and any copies players already own get the new
+behaviour. Copies that still have charges stored on them stop using them. The changes are made to
+the item in the server's memory at startup, not in SQL: mod-individual-progression sets this item
+back to vanilla (`spellcharges_1 = 3`) in `vanilla_item_changes.sql`, and the DB updater re-runs
+that file whenever IP changes it, so an SQL update here would be quietly undone. Players delete
+their `Cache` folder (or `Cache/WDB`) to see the new name and tooltip; the server enforces the new
+rules either way.
+
+The attack power is an equip effect that the core turns on and off as the druid changes form, so
+it counts in Cat Form, Bear Form and Dire Bear Form only, not in caster form or Moonkin Form. It
+reuses spell 33116, "Attack Power - Feral (+0070)", which no item uses in 3.3.5 (feral attack
+power comes from weapon DPS there, and the Pummeler's is far too low to give any). The stock spell
+gives 70 and also lists Moonkin Form, so the server sets it to 69 and the three forms. Without the
+client patch the tooltip still says "Increases attack power by 70 in Cat, Bear, Dire Bear, and
+Moonkin forms only."; with it, it says "+69 Attack Power in Cat, Bear, and Dire Bear forms only."
+
+Not copied from Season of Discovery: its level 40 stats (Gnomeregan is still a level 30 dungeon
+here), and "Does not affect characters above level 55" on Haste (the client's spell 13494 is used
+unchanged).
+
 ## Pulverize
 
 Cataclysm's Pulverize, learned at level 42:
@@ -193,11 +230,16 @@ are added to the world database on the next start.
 | `ForeverDruid.FormGathering.Enable` | `1` | Mining works in every druid form. |
 | `ForeverDruid.CatComboPoints.Enable` | `1` | Cat Form combo points carry over to the next target. |
 | `ForeverDruid.CatComboPoints.KeepAfterKill` | `20000` | Milliseconds points from a dead target wait for the next one. |
+| `ForeverDruid.CrowdPummeler.Enable` | `1` | Turn the Manual Crowd Pummeler into the Automatic Crowd Pummeler. `0` leaves item 9449 as the DB has it. |
+| `ForeverDruid.CrowdPummeler.CooldownSeconds` | `180` | Cooldown of its Haste. 30 or less means permanent uptime. |
+| `ForeverDruid.CrowdPummeler.RestrictClasses` | `1` | Only Paladins, Shamans and Druids can equip it. |
+| `ForeverDruid.CrowdPummeler.FeralAttackPower` | `69` | Attack power in Cat, Bear and Dire Bear Form. `0` for none. |
 
-All of them take effect on `.reload config` (a new Pulverize level applies at each druid's next
+The `CrowdPummeler` settings need a worldserver restart. All the others take effect on `.reload config` (a new Pulverize level applies at each druid's next
 login or level-up). Rage costs, the Frenzied Regeneration rate and the Pulverize numbers are also
 in the client patch's tooltips: if you change them and use the patch, change the matching values
-at the top of `tools/patch-forever-druid-dbc.sh` and rebuild the patch.
+at the top of `tools/patch-forever-druid-dbc.sh` and rebuild the patch. The same goes for the
+Crowd Pummeler's attack power.
 
 ## Optional client patch
 
@@ -220,6 +262,8 @@ in Cat Form and Bear Form without the patch, and so does Mining in every form.
   Bear Form (needed: the client blocks them itself).
 - **Spell.dbc, mining:** Mining (all 6 ranks), creature mining and Engineering salvage become
   usable in every druid form (needed: the client blocks them itself).
+- **Spell.dbc, Automatic Crowd Pummeler:** the equip bonus's tooltip (spell 33116): +69 attack
+  power in Cat, Bear and Dire Bear Form, without Moonkin.
 - **SkillLineAbility.dbc:** adds Pulverize to the Feral Combat tab of the spellbook.
 
 ```bash
