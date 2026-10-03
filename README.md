@@ -10,6 +10,8 @@ bear tanking to a 3.3.5 server:
   go with it.
 - **Travel and flight forms follow [mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling)**
   when that module is installed.
+- **Travel Form works indoors**: it can be cast inside, and walking into a building no longer
+  cancels it.
 - **Consumables work in Cat Form and Bear Form**, including the stat scrolls and other items the
   game blocks while shapeshifted.
 - **Mining works in every form**, like Herb Gathering and Skinning already do.
@@ -80,9 +82,13 @@ mount can't be used in combat at all). `ForeverDruid.FormSpeed.OutOfCombatOnly =
 mount speed in combat too. The flight forms (which can't be cast in combat) keep their speed.
 
 Indoors Travel Form is always the stock 40%, in or out of combat, since mounts can't go indoors
-either, and it never drops below 40% even when the mount curve is lower at low levels. Travel
-Form is still outdoors only as in stock (walking inside cancels it), so the indoor rule only
-matters where the game lets it stay on indoors.
+either, and it never drops below 40% even when the mount curve is lower at low levels.
+
+Travel Form also works indoors: stock Travel Form is outdoors only (it can't be cast inside, and
+walking into a building cancels it), and the module takes that off. The client refuses
+outdoors-only spells indoors by itself, so casting it indoors needs the client patch; without it,
+walking inside in Travel Form still keeps it. The flight forms stay outdoors only.
+`ForeverDruid.TravelFormIndoors.Enable = 0` makes Travel Form outdoors only again.
 
 The speed changes as soon as you shift, when you level up in form, and when you walk indoors or
 outdoors. Without mod-mount-scaling
@@ -232,6 +238,7 @@ are added to the world database on the next start.
 | `ForeverDruid.Pulverize.CritPerStack` | `2` | Crit % per Lacerate stack for 10 seconds. `0` for no buff. |
 | `ForeverDruid.FormSpeed.Enable` | `1` | Travel and flight forms follow mod-mount-scaling's speeds. |
 | `ForeverDruid.FormSpeed.OutOfCombatOnly` | `1` | Travel Form gets the mount speed only out of combat. |
+| `ForeverDruid.TravelFormIndoors.Enable` | `1` | Travel Form can be cast and kept indoors (casting needs the client patch). |
 | `ForeverDruid.FormConsumables.Enable` | `1` | Consumables blocked while shapeshifted work in Cat Form and Bear Form. |
 | `ForeverDruid.FormGathering.Enable` | `1` | Mining works in every druid form. |
 | `ForeverDruid.CatComboPoints.Enable` | `1` | Cat Form combo points carry over to the next target. |
@@ -257,7 +264,8 @@ Frenzied Regeneration heals the new amount without the patch, but its tooltip st
 Pulverize works without the patch, but the client calls it "Test Maul" (Rank 4, Maul's icon and
 an old tooltip), thinks it costs 30 rage (so it won't let you press it with less), puts it in the
 General tab, and doesn't show the crit buff on the buff bar. The blocked consumables stay blocked
-in Cat Form and Bear Form without the patch, and so does Mining in every form.
+in Cat Form and Bear Form without the patch, and so does Mining in every form. Travel Form can't
+be cast indoors without the patch.
 
 `tools/patch-forever-druid-dbc.sh` changes two client files:
 
@@ -270,6 +278,8 @@ in Cat Form and Bear Form without the patch, and so does Mining in every form.
   usable in every druid form (needed: the client blocks them itself).
 - **Spell.dbc, Automatic Crowd Pummeler:** the equip bonus's tooltip (spell 33116): +69 attack
   power in Cat, Bear and Dire Bear Form, without Moonkin.
+- **Spell.dbc, Travel Form:** Travel Form (783) is no longer outdoors only (needed: the client
+  refuses it indoors itself).
 - **SkillLineAbility.dbc:** adds Pulverize to the Feral Combat tab of the spellbook.
 
 ```bash
