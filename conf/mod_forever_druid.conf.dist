@@ -172,6 +172,18 @@ ForeverDruid.FormSpeed.Enable = 1
 ForeverDruid.FormSpeed.OutOfCombatOnly = 1
 
 #
+#    ForeverDruid.TravelFormIndoors.Enable
+#        Description: Let Travel Form be used indoors. Stock Travel Form is outdoors only: it
+#                     can't be cast indoors, and walking into a building cancels it. With 1,
+#                     walking inside keeps it (at the stock 40% speed). Casting it indoors also
+#                     needs the optional client patch (tools/patch-forever-druid-dbc.sh); without
+#                     it the client still refuses it indoors. The flight forms stay outdoors only.
+#        Default:     1
+#
+
+ForeverDruid.TravelFormIndoors.Enable = 1
+
+#
 #    ForeverDruid.FormConsumables.Enable
 #        Description: Let druids use the consumables the game data blocks while shapeshifted
 #                     (stat scrolls, water breathing elixirs, drums, battle standards and the like)

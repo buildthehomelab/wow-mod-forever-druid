@@ -18,6 +18,9 @@
  *   level-scaled mount speeds, like a mount would. Travel Form only outdoors and out of combat:
  *   in combat and indoors it's the stock 40%, since a mount can't be used there either. It never
  *   drops below 40%.
+ * - Travel Form works indoors. Stock Travel Form is outdoors only: it can't be cast indoors, and
+ *   walking into a building cancels it. The client checks this too, so casting it indoors needs
+ *   the optional client patch.
  *
  * - Consumables work in Cat Form, Bear Form and Dire Bear Form. Food, potions, flasks, elixirs
  *   and bandages already do in stock 3.3.5; this adds the ones the game data blocks while
@@ -109,6 +112,7 @@ namespace
     // The passive auras the travel forms cast on the druid, which hold the forms' speed. Travel
     // Form: effect 0 ground speed (40%). Flight Form and Swift Flight Form: effect 0 ground speed
     // (60% / 100%), effect 1 flight speed (150% / 280%).
+    constexpr uint32 SPELL_TRAVEL_FORM               = 783;   // must match tools/patch-forever-druid-dbc.sh
     constexpr uint32 SPELL_TRAVEL_FORM_PASSIVE       = 5419;
     constexpr uint32 SPELL_FLIGHT_FORM_PASSIVE       = 33948;
     constexpr uint32 SPELL_SWIFT_FLIGHT_FORM_PASSIVE = 40121;
@@ -137,6 +141,7 @@ namespace
         uint32 pulverizeCritPerStack = 2;
         bool formSpeedEnabled = true;
         bool formSpeedOutOfCombatOnly = true;
+        bool travelFormIndoorsEnabled = true;
         bool formConsumablesEnabled = true;
         bool formGatheringEnabled = true;
         bool catComboPointsEnabled = true;
@@ -421,6 +426,22 @@ namespace
         }
     }
 
+    // Let Travel Form be cast and kept indoors. "Only outdoors" is both what Spell::CheckCast
+    // refuses indoors and what Player::CheckAreaExploreAndOutdoor removes when the druid walks
+    // inside, so taking it off covers both. Its speed passive (5419) isn't outdoors only. The
+    // flight forms stay outdoors only: there's no flying indoors.
+    void ApplyTravelFormIndoors()
+    {
+        SpellInfo* spellInfo = const_cast<SpellInfo*>(sSpellMgr->GetSpellInfo(SPELL_TRAVEL_FORM));
+        if (!spellInfo)
+            return;
+
+        if (config.travelFormIndoorsEnabled)
+            spellInfo->Attributes &= ~SPELL_ATTR0_ONLY_OUTDOORS;
+        else
+            spellInfo->Attributes |= SPELL_ATTR0_ONLY_OUTDOORS;
+    }
+
     constexpr uint32 ITEM_CROWD_PUMMELER        = 9449;
     constexpr uint32 SPELL_CROWD_PUMMELER_HASTE = 13494;
     // "Attack Power - Feral (+0070)", a passive no item uses in 3.3.5 (feral attack power comes
@@ -526,6 +547,7 @@ namespace
         ApplyPulverizeSpellData();
         ApplyFormConsumables();
         ApplyFormGathering();
+        ApplyTravelFormIndoors();
     }
 
     // Teach Swipe (Bear) rank 1 to a druid who knows Bear Form (or Dire Bear Form) but no rank of
@@ -961,6 +983,7 @@ public:
 
         config.formSpeedEnabled         = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.Enable", true);
         config.formSpeedOutOfCombatOnly = sConfigMgr->GetOption<bool>("ForeverDruid.FormSpeed.OutOfCombatOnly", true);
+        config.travelFormIndoorsEnabled = sConfigMgr->GetOption<bool>("ForeverDruid.TravelFormIndoors.Enable", true);
 
         config.formConsumablesEnabled = sConfigMgr->GetOption<bool>("ForeverDruid.FormConsumables.Enable", true);
         config.formGatheringEnabled   = sConfigMgr->GetOption<bool>("ForeverDruid.FormGathering.Enable", true);

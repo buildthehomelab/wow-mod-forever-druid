@@ -13,6 +13,7 @@
 #   shapeshifted" before it asks the server, so without this scrolls and the like still say you
 #   can't do that while shapeshifted.
 # - Mining in every druid form: the same client check, on Mining and creature mining/salvage.
+# - Travel Form indoors: the client also refuses outdoors-only spells indoors by itself.
 # - Automatic Crowd Pummeler: its equip bonus (spell 33116) reads "+69 Attack Power in Cat, Bear,
 #   and Dire Bear forms only." instead of "+70 ... and Moonkin forms".
 #
@@ -26,7 +27,7 @@
 set -euo pipefail
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
-    sed -n '17,22p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '20,25p' "$0" | sed 's/^# \{0,1\}//'
     exit 1
 fi
 
@@ -80,6 +81,10 @@ FORM_GATHERING_SPELLS = [2575, 2576, 3564, 10248, 29354, 50310, 32606, 49383]
 # FORM_FLIGHT, FORM_MOONKIN
 FORM_MASK_DRUID = sum(1 << (form - 1) for form in (1, 2, 3, 4, 5, 8, 27, 29, 31))
 FORM_MASK_TREE = 1 << (2 - 1)
+
+# Travel Form, which ForeverDruid.TravelFormIndoors makes usable indoors.
+SPELL_TRAVEL_FORM = 783
+SPELL_ATTR0_ONLY_OUTDOORS = 0x8000
 
 # The Automatic Crowd Pummeler's equip bonus, "Attack Power - Feral (+0070)" in the stock client.
 SPELL_CROWD_PUMMELER_FERAL_AP = 33116
@@ -262,6 +267,11 @@ for spell_id in FORM_GATHERING_SPELLS:
     row[STANCES_NOT] &= ~FORM_MASK_TREE
     row[ATTRIBUTES_EX2] |= SPELL_ATTR2_ALLOW_WHILE_NOT_SHAPESHIFTED
 print(f"  {len(FORM_GATHERING_SPELLS)} mining spells: usable in every druid form")
+
+# Same as ApplyTravelFormIndoors: Travel Form is no longer outdoors only.
+row = spell(SPELL_TRAVEL_FORM)
+row[ATTRIBUTES] &= ~SPELL_ATTR0_ONLY_OUTDOORS
+print(f"  Travel Form ({SPELL_TRAVEL_FORM}): usable indoors")
 
 # Same as ApplyCrowdPummeler: Cat, Bear and Dire Bear Form only (the stock spell has Moonkin
 # too), and the configured amount. The item tooltip shows "Equip: " and this description.
