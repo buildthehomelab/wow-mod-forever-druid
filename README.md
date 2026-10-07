@@ -204,7 +204,18 @@ It reuses two spells every 3.3.5 client already has and nothing in the game uses
 (24042), a leftover Blizzard test copy of Maul, becomes the button, and "Pulverize" (742), an
 unused NPC aura with Pulverize's icon, becomes the crit buff. No NPC or player spell changes.
 
-## Install
+## Requirements
+
+- [AzerothCore](https://www.azerothcore.org/) wotlk (master) and a WoW 3.3.5a (12340) client.
+- The server side works on its own. The optional client patch (see [Optional client patch](#optional-client-patch))
+  is strongly recommended for correct tooltips and for Pulverize, form consumables, Mining in
+  forms and Travel Form indoors to work in the client.
+- Optional: [mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling) for
+  travel and flight form speed, and [mod-forever-rogue](https://github.com/buildthehomelab/wow-mod-forever-rogue)
+  for the matching rogue combo points.
+- Remove the old mod-automatic-crowd-pummeler module if you have it; this one replaces it.
+
+## Installation
 
 Clone it into your AzerothCore `modules` folder **as `mod-forever-druid`**, without the repo's
 `wow-` prefix. AzerothCore finds the module's entry point from the folder name.
@@ -322,3 +333,25 @@ folder.
   action.
 - Pulverize's damage numbers are this module's guesses for 3.3.5, not WoW Forever's (WoW Forever
   doesn't have Pulverize).
+
+## Troubleshooting
+
+- **Swipe says "Not enough rage", or its tooltip says 20 rage:** the client doesn't have the
+  patch. With 20 or more rage it works and costs nothing.
+- **Pulverize shows up as "Test Maul", or the blocked consumables and Mining still say "Can't do
+  that while shapeshifted", or Travel Form can't be cast indoors:** these checks happen in the
+  client, so they need the patch.
+- **The new names and tooltips don't appear after a patch change:** players delete their `Cache/`
+  folder.
+- **Travel and flight forms keep their stock speed:** mod-mount-scaling isn't installed or has
+  `MountScaling.Enable = 0`, or `ForeverDruid.FormSpeed.Enable = 0`.
+- **The Crowd Pummeler settings don't change anything:** they need a worldserver restart, not
+  `.reload config`.
+
+## Credits
+
+Author: [buildthehomelab](https://github.com/buildthehomelab)
+
+## License
+
+MIT, see [LICENSE](LICENSE).
