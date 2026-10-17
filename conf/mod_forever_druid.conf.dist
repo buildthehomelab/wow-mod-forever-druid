@@ -150,11 +150,12 @@ ForeverDruid.Pulverize.CritPerStack = 2
 #        Description: With mod-mount-scaling installed, Travel Form, Flight Form and Swift Flight
 #                     Form get the same level-scaled speed as a mount: ground speed from
 #                     Apprentice or Journeyman Riding, flight speed from Expert or Artisan Riding.
-#                     The numbers come from mod-mount-scaling's own MountScaling.* settings. A
-#                     druid without the riding skill for it keeps the form's stock speed (Travel
-#                     Form 40%, Flight Form 150%, Swift Flight Form 280%). Indoors Travel Form is
-#                     always the stock 40%, and it never drops below 40%. Does nothing without
-#                     mod-mount-scaling or with MountScaling.Enable = 0.
+#                     Aquatic Form's swim speed follows the ground speed too. The numbers come
+#                     from mod-mount-scaling's own MountScaling.* settings. A druid without the
+#                     riding skill for it keeps the form's stock speed (Travel Form 40%, Aquatic
+#                     Form 50%, Flight Form 150%, Swift Flight Form 280%). Indoors Travel Form and
+#                     Aquatic Form are always the stock 40% / 50%, and they never drop below it.
+#                     Does nothing without mod-mount-scaling or with MountScaling.Enable = 0.
 #        Default:     1
 #
 
@@ -162,10 +163,10 @@ ForeverDruid.FormSpeed.Enable = 1
 
 #
 #    ForeverDruid.FormSpeed.OutOfCombatOnly
-#        Description: With 1, Travel Form only gets the mount speed out of combat: entering
-#                     combat drops it to the stock 40% and leaving combat brings it back. Mounts
-#                     can't be used in combat at all. The flight forms aren't affected. With 0,
-#                     Travel Form keeps the mount speed in combat too.
+#        Description: With 1, Travel Form and Aquatic Form only get the mount speed out of
+#                     combat: entering combat drops them to the stock 40% / 50% and leaving combat
+#                     brings it back. Mounts can't be used in combat at all. The flight forms
+#                     aren't affected. With 0, they keep the mount speed in combat too.
 #        Default:     1
 #
 

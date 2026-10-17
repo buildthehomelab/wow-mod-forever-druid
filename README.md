@@ -8,7 +8,7 @@ bear tanking to a 3.3.5 server:
 - **Frenzied Regeneration turns each point of rage into 1% of max health**, up from 0.3%.
 - **Pulverize**, Cataclysm's bear finisher, at level 42, and **Lacerate moves to level 42** to
   go with it.
-- **Travel and flight forms follow [mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling)**
+- **Travel, Aquatic and flight forms follow [mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling)**
   when that module is installed.
 - **Travel Form works indoors**: it can be cast inside, and walking into a building no longer
   cancels it.
@@ -67,22 +67,24 @@ installed, the forms get the speed a mount would:
 | Form | Stock | With mod-mount-scaling |
 |---|---|---|
 | Travel Form | 40% | ground mount speed (Apprentice / Journeyman Riding) |
+| Aquatic Form | 50% swimming | ground mount speed, as swim speed |
 | Flight Form | 150% flying, 60% on the ground | Expert / Artisan flying speed, ground mount speed on the ground |
 | Swift Flight Form | 280% flying, 100% on the ground | the same |
 
 The numbers come from mod-mount-scaling's own `MountScaling.*` settings, so the two always match.
-A druid without the riding skill for it keeps the form's stock speed; Travel Form doesn't need
-riding otherwise. Like a mount, Swift Flight Form follows the Artisan curve: 208% at 71, 280% at 80.
+A druid without the riding skill for it keeps the form's stock speed; Travel Form and Aquatic
+Form don't need riding otherwise. Like a mount, Swift Flight Form follows the Artisan curve: 208% at 71, 280% at 80.
 A druid who owns a 310% flying mount keeps a 310% Swift Flight Form at every level, as in stock
 WotLK.
 
-Travel Form only gets the mount speed **out of combat**. Entering combat drops it to the stock
-40% and leaving combat brings it back, so it stays a way to travel rather than a way to kite (a
+Travel Form and Aquatic Form only get the mount speed **out of combat**. Entering combat drops
+them to the stock 40% / 50% and leaving combat brings it back, so it stays a way to travel rather than a way to kite (a
 mount can't be used in combat at all). `ForeverDruid.FormSpeed.OutOfCombatOnly = 0` keeps the
 mount speed in combat too. The flight forms (which can't be cast in combat) keep their speed.
 
-Indoors Travel Form is always the stock 40%, in or out of combat, since mounts can't go indoors
-either, and it never drops below 40% even when the mount curve is lower at low levels.
+Indoors Travel Form is always the stock 40% and Aquatic Form the stock 50%, in or out of combat,
+since mounts can't go indoors either, and they never drop below that even when the mount curve is
+lower at low levels.
 
 Travel Form also works indoors: stock Travel Form is outdoors only (it can't be cast inside, and
 walking into a building cancels it), and the module takes that off. The client refuses
@@ -247,8 +249,8 @@ are added to the world database on the next start.
 | `ForeverDruid.Pulverize.WeaponDamagePercent` | `60` | Hit damage as a percentage of weapon damage. |
 | `ForeverDruid.Pulverize.AttackPowerPerStack` | `0.04` | Extra damage per Lacerate stack, as a share of attack power. |
 | `ForeverDruid.Pulverize.CritPerStack` | `2` | Crit % per Lacerate stack for 10 seconds. `0` for no buff. |
-| `ForeverDruid.FormSpeed.Enable` | `1` | Travel and flight forms follow mod-mount-scaling's speeds. |
-| `ForeverDruid.FormSpeed.OutOfCombatOnly` | `1` | Travel Form gets the mount speed only out of combat. |
+| `ForeverDruid.FormSpeed.Enable` | `1` | Travel, Aquatic and flight forms follow mod-mount-scaling's speeds. |
+| `ForeverDruid.FormSpeed.OutOfCombatOnly` | `1` | Travel Form and Aquatic Form get the mount speed only out of combat. |
 | `ForeverDruid.TravelFormIndoors.Enable` | `1` | Travel Form can be cast and kept indoors (casting needs the client patch). |
 | `ForeverDruid.FormConsumables.Enable` | `1` | Consumables blocked while shapeshifted work in Cat Form and Bear Form. |
 | `ForeverDruid.FormGathering.Enable` | `1` | Mining works in every druid form. |
