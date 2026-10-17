@@ -17,7 +17,8 @@
  * - With mod-mount-scaling installed, Travel Form, Flight Form and Swift Flight Form follow its
  *   level-scaled mount speeds, like a mount would. Travel Form only outdoors and out of combat:
  *   in combat and indoors it's the stock 40%, since a mount can't be used there either. It never
- *   drops below 40%.
+ *   drops below 40%. Aquatic Form's swim speed follows the same ground mount speed, by the same
+ *   rules, and never drops below its stock 50%.
  * - Travel Form works indoors. Stock Travel Form is outdoors only: it can't be cast indoors, and
  *   walking into a building cancels it. The client checks this too, so casting it indoors needs
  *   the optional client patch.
@@ -110,10 +111,12 @@ namespace
     constexpr uint32 DURATION_10_SECONDS = 1;
 
     // The passive auras the travel forms cast on the druid, which hold the forms' speed. Travel
-    // Form: effect 0 ground speed (40%). Flight Form and Swift Flight Form: effect 0 ground speed
-    // (60% / 100%), effect 1 flight speed (150% / 280%).
+    // Form: effect 0 ground speed (40%). Aquatic Form: effect 0 swim speed (50%), effect 1 water
+    // breathing. Flight Form and Swift Flight Form: effect 0 ground speed (60% / 100%), effect 1
+    // flight speed (150% / 280%).
     constexpr uint32 SPELL_TRAVEL_FORM               = 783;   // must match tools/patch-forever-druid-dbc.sh
     constexpr uint32 SPELL_TRAVEL_FORM_PASSIVE       = 5419;
+    constexpr uint32 SPELL_AQUATIC_FORM_PASSIVE      = 5421;
     constexpr uint32 SPELL_FLIGHT_FORM_PASSIVE       = 33948;
     constexpr uint32 SPELL_SWIFT_FLIGHT_FORM_PASSIVE = 40121;
 
@@ -622,13 +625,23 @@ namespace FormSpeed
 
     bool IsFormPassive(uint32 spellId)
     {
-        return spellId == SPELL_TRAVEL_FORM_PASSIVE || spellId == SPELL_FLIGHT_FORM_PASSIVE
-            || spellId == SPELL_SWIFT_FLIGHT_FORM_PASSIVE;
+        return spellId == SPELL_TRAVEL_FORM_PASSIVE || spellId == SPELL_AQUATIC_FORM_PASSIVE
+            || spellId == SPELL_FLIGHT_FORM_PASSIVE || spellId == SPELL_SWIFT_FLIGHT_FORM_PASSIVE;
     }
 
     // Swift Flight Form's speed for a druid who owns a 310% flying mount, as the core's
     // spell_dru_swift_flight_passive gives it.
     constexpr int32 SWIFT_FLIGHT_FORM_310_SPEED = 310;
+
+    // Travel Form and Aquatic Form keep their own speed (40% / 50%) in combat and indoors, since a
+    // mount can't be used there either. Outdoors and out of combat they get the ground mount
+    // speed, but never less than their own.
+    int32 TravelSpeed(Player* player, AuraEffect const* effect)
+    {
+        int32 const stockSpeed = effect->GetSpellInfo()->Effects[effect->GetEffIndex()].CalcValue();
+        bool const scaled = !(config.formSpeedOutOfCombatOnly && player->IsInCombat()) && player->IsOutdoors();
+        return scaled ? std::max(stockSpeed, Ground(player)) : stockSpeed;
+    }
 
     // Set the speed effects of one of the form passives. Runs after the aura is applied, so it
     // comes after the core's spell_dru_swift_flight_passive. ChangeAmount updates the speed at
@@ -646,18 +659,9 @@ namespace FormSpeed
 
             int32 speed = 0;
             if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_SPEED)
-            {
-                // Travel Form keeps its own speed (40%) in combat and indoors, since a mount can't
-                // be used there either. Outdoors and out of combat it scales, but never below 40%.
-                if (aura->GetId() == SPELL_TRAVEL_FORM_PASSIVE)
-                {
-                    int32 const stockSpeed = effect->GetSpellInfo()->Effects[i].CalcValue();
-                    bool const scaled = !(config.formSpeedOutOfCombatOnly && player->IsInCombat()) && player->IsOutdoors();
-                    speed = scaled ? std::max(stockSpeed, Ground(player)) : stockSpeed;
-                }
-                else
-                    speed = Ground(player);
-            }
+                speed = aura->GetId() == SPELL_TRAVEL_FORM_PASSIVE ? TravelSpeed(player, effect) : Ground(player);
+            else if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_SWIM_SPEED)
+                speed = TravelSpeed(player, effect);
             else if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED)
             {
                 speed = Flight(player);
@@ -678,7 +682,8 @@ namespace FormSpeed
     // shift.
     void Update(Player* player)
     {
-        for (uint32 spellId : { SPELL_TRAVEL_FORM_PASSIVE, SPELL_FLIGHT_FORM_PASSIVE, SPELL_SWIFT_FLIGHT_FORM_PASSIVE })
+        for (uint32 spellId : { SPELL_TRAVEL_FORM_PASSIVE, SPELL_AQUATIC_FORM_PASSIVE, SPELL_FLIGHT_FORM_PASSIVE,
+                                SPELL_SWIFT_FLIGHT_FORM_PASSIVE })
             if (Aura* aura = player->GetAura(spellId))
                 Apply(player, aura);
     }
