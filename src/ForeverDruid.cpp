@@ -18,7 +18,7 @@
  *   level-scaled mount speeds, like a mount would. Travel Form only outdoors and out of combat:
  *   in combat and indoors it's the stock 40%, since a mount can't be used there either. It never
  *   drops below 40%. Aquatic Form's swim speed follows the same ground mount speed, by the same
- *   rules, and never drops below its stock 50%.
+ *   rules, and never drops below its stock 50%. Glyph of Aquatic Form's +50% comes on top.
  * - Travel Form works indoors. Stock Travel Form is outdoors only: it can't be cast indoors, and
  *   walking into a building cancels it. The client checks this too, so casting it indoors needs
  *   the optional client patch.
@@ -635,12 +635,15 @@ namespace FormSpeed
 
     // Travel Form and Aquatic Form keep their own speed (40% / 50%) in combat and indoors, since a
     // mount can't be used there either. Outdoors and out of combat they get the ground mount
-    // speed, but never less than their own.
+    // speed, but never less than their own. Spell mods on the form's speed (Glyph of Aquatic
+    // Form's +50%) come on top of either one.
     int32 TravelSpeed(Player* player, AuraEffect const* effect)
     {
-        int32 const stockSpeed = effect->GetSpellInfo()->Effects[effect->GetEffIndex()].CalcValue();
+        SpellEffectInfo const& info = effect->GetSpellInfo()->Effects[effect->GetEffIndex()];
+        int32 const stockSpeed = info.CalcValue();
+        int32 const bonus = info.CalcValue(player) - stockSpeed;
         bool const scaled = !(config.formSpeedOutOfCombatOnly && player->IsInCombat()) && player->IsOutdoors();
-        return scaled ? std::max(stockSpeed, Ground(player)) : stockSpeed;
+        return (scaled ? std::max(stockSpeed, Ground(player)) : stockSpeed) + bonus;
     }
 
     // Set the speed effects of one of the form passives. Runs after the aura is applied, so it
