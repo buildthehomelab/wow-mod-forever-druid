@@ -86,6 +86,9 @@ Indoors Travel Form is always the stock 40% and Aquatic Form the stock 50%, in o
 since mounts can't go indoors either, and they never drop below that even when the mount curve is
 lower at low levels.
 
+Glyph of Aquatic Form's +50% swim speed comes on top of whichever speed Aquatic Form has: the
+stock 50% becomes 100% in combat and indoors, and a 150% mount speed becomes 200%.
+
 Travel Form also works indoors: stock Travel Form is outdoors only (it can't be cast inside, and
 walking into a building cancels it), and the module takes that off. The client refuses
 outdoors-only spells indoors by itself, so casting it indoors needs the client patch; without it,

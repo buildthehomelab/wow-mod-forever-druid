@@ -155,6 +155,7 @@ ForeverDruid.Pulverize.CritPerStack = 2
 #                     riding skill for it keeps the form's stock speed (Travel Form 40%, Aquatic
 #                     Form 50%, Flight Form 150%, Swift Flight Form 280%). Indoors Travel Form and
 #                     Aquatic Form are always the stock 40% / 50%, and they never drop below it.
+#                     Glyph of Aquatic Form's +50% comes on top of Aquatic Form's speed.
 #                     Does nothing without mod-mount-scaling or with MountScaling.Enable = 0.
 #        Default:     1
 #
