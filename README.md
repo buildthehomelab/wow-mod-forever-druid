@@ -9,7 +9,8 @@ bear tanking to a 3.3.5 server:
 - **Pulverize**, Cataclysm's bear finisher, at level 42, and **Lacerate moves to level 42** to
   go with it.
 - **Travel, Aquatic and flight forms follow [mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling)**
-  when that module is installed.
+  when that module is installed, and get the speed bonuses a mount would (Mount Up, Mithril Spurs),
+  plus Plainsrunning and the other stacking run speed bonuses while swimming and flying.
 - **Travel Form works indoors**: it can be cast inside, and walking into a building no longer
   cancels it.
 - **Consumables work in Cat Form and Bear Form**, including the stat scrolls and other items the
@@ -89,16 +90,30 @@ lower at low levels.
 Glyph of Aquatic Form's +50% swim speed comes on top of whichever speed Aquatic Form has: the
 stock 50% becomes 100% in combat and indoors, and a 150% mount speed becomes 200%.
 
+Speed bonuses reach the forms the way they'd reach a mount, and they **multiply**, as everywhere
+else in the game:
+
+| Bonus | Stock 3.3.5 | With this module |
+|---|---|---|
+| Run speed bonuses that stack: Plainsrunning (mod-forever-racials), Quickness, Drums of Speed | on foot and in every form, on the ground only | also Aquatic Form's swimming and the flight forms' flying |
+| Mount speed bonuses that stack: Mount Up (mod-guild-levels), Mithril Spurs, Carrot on a Stick, the riding glove enchant | mounts only | also Travel Form (outdoors and out of combat, where it gets the mount speed) and the flight forms |
+| Crusader Aura | mounts, and flight forms in the air | unchanged |
+| Riding Crop | mounts only | unchanged |
+
+For example a level 60 Tauren in Travel Form with 100% speed, Mount Up and full Plainsrunning goes
+2.0 × 1.1 × 1.1 = 2.42 times run speed. In the air, Crusader Aura and the stacking mount bonuses
+don't add up, as on a mount: the bigger one counts.
+
 Travel Form also works indoors: stock Travel Form is outdoors only (it can't be cast inside, and
 walking into a building cancels it), and the module takes that off. The client refuses
 outdoors-only spells indoors by itself, so casting it indoors needs the client patch; without it,
 walking inside in Travel Form still keeps it. The flight forms stay outdoors only.
 `ForeverDruid.TravelFormIndoors.Enable = 0` makes Travel Form outdoors only again.
 
-The speed changes as soon as you shift, when you level up in form, and when you walk indoors or
-outdoors. Without mod-mount-scaling
-(or with `MountScaling.Enable = 0`) nothing changes. `ForeverDruid.FormSpeed.Enable = 0` turns
-it off.
+The speed changes as soon as you shift, when you level up in form, when you walk indoors or
+outdoors, and when a speed bonus comes or goes. Without mod-mount-scaling (or with
+`MountScaling.Enable = 0`) the forms keep their stock speeds, but still get the bonuses.
+`ForeverDruid.FormSpeed.Enable = 0` turns all of it off.
 
 ## Consumables in Cat Form and Bear Form
 
@@ -252,7 +267,7 @@ are added to the world database on the next start.
 | `ForeverDruid.Pulverize.WeaponDamagePercent` | `60` | Hit damage as a percentage of weapon damage. |
 | `ForeverDruid.Pulverize.AttackPowerPerStack` | `0.04` | Extra damage per Lacerate stack, as a share of attack power. |
 | `ForeverDruid.Pulverize.CritPerStack` | `2` | Crit % per Lacerate stack for 10 seconds. `0` for no buff. |
-| `ForeverDruid.FormSpeed.Enable` | `1` | Travel, Aquatic and flight forms follow mod-mount-scaling's speeds. |
+| `ForeverDruid.FormSpeed.Enable` | `1` | Travel, Aquatic and flight forms follow mod-mount-scaling's speeds and get the speed bonuses a mount would. |
 | `ForeverDruid.FormSpeed.OutOfCombatOnly` | `1` | Travel Form and Aquatic Form get the mount speed only out of combat. |
 | `ForeverDruid.TravelFormIndoors.Enable` | `1` | Travel Form can be cast and kept indoors (casting needs the client patch). |
 | `ForeverDruid.FormConsumables.Enable` | `1` | Consumables blocked while shapeshifted work in Cat Form and Bear Form. |
@@ -349,7 +364,8 @@ folder.
 - **The new names and tooltips don't appear after a patch change:** players delete their `Cache/`
   folder.
 - **Travel and flight forms keep their stock speed:** mod-mount-scaling isn't installed or has
-  `MountScaling.Enable = 0`, or `ForeverDruid.FormSpeed.Enable = 0`.
+  `MountScaling.Enable = 0` (speed bonuses still apply), or `ForeverDruid.FormSpeed.Enable = 0`
+  (no speed bonuses in forms either).
 - **The Crowd Pummeler settings don't change anything:** they need a worldserver restart, not
   `.reload config`.
 

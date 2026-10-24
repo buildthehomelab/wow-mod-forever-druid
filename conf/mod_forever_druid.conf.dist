@@ -156,7 +156,11 @@ ForeverDruid.Pulverize.CritPerStack = 2
 #                     Form 50%, Flight Form 150%, Swift Flight Form 280%). Indoors Travel Form and
 #                     Aquatic Form are always the stock 40% / 50%, and they never drop below it.
 #                     Glyph of Aquatic Form's +50% comes on top of Aquatic Form's speed.
-#                     Does nothing without mod-mount-scaling or with MountScaling.Enable = 0.
+#                     Speed bonuses that stack multiply in: run speed ones (Plainsrunning,
+#                     Quickness) also speed up swimming and flying in a form, and mount ones
+#                     (Mount Up, Mithril Spurs) also speed up Travel Form and the flight forms.
+#                     Without mod-mount-scaling (or with MountScaling.Enable = 0) the forms keep
+#                     their stock speeds but still get the bonuses.
 #        Default:     1
 #
 

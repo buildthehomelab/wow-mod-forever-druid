@@ -19,6 +19,10 @@
  *   in combat and indoors it's the stock 40%, since a mount can't be used there either. It never
  *   drops below 40%. Aquatic Form's swim speed follows the same ground mount speed, by the same
  *   rules, and never drops below its stock 50%. Glyph of Aquatic Form's +50% comes on top.
+ * - Speed bonuses reach the travel forms the way they'd reach a mount, multiplied in: run speed
+ *   bonuses that stack (Plainsrunning, Quickness) also speed up Aquatic Form's swimming and the
+ *   flight forms' flying, and mount speed bonuses that stack (Mount Up, Mithril Spurs) also speed
+ *   up Travel Form (where it gets the mount speed) and the flight forms.
  * - Travel Form works indoors. Stock Travel Form is outdoors only: it can't be cast indoors, and
  *   walking into a building cancels it. The client checks this too, so casting it indoors needs
  *   the optional client patch.
@@ -591,13 +595,13 @@ namespace
 
 // mod-mount-scaling's formulas (src/MountScaling.cpp there), so a druid in a travel form goes as
 // fast as they would on a mount: ground speed from Apprentice or Journeyman Riding, flight speed
-// from Expert or Artisan Riding, growing with level. 0 means "no riding skill for it": keep the
-// form's stock speed.
+// from Expert or Artisan Riding, growing with level. 0 means "no riding skill for it" (or no
+// mod-mount-scaling): keep the form's stock speed.
 namespace FormSpeed
 {
     int32 Ground(Player* player)
     {
-        if (!player->HasSpell(SPELL_APPRENTICE_RIDING))
+        if (!mountScaling.enabled || !player->HasSpell(SPELL_APPRENTICE_RIDING))
             return 0;
 
         float const level = player->GetLevel();
@@ -611,6 +615,9 @@ namespace FormSpeed
 
     int32 Flight(Player* player)
     {
+        if (!mountScaling.enabled)
+            return 0;
+
         float const level = player->GetLevel();
         MountScalingConfig const& c = mountScaling;
 
@@ -633,6 +640,13 @@ namespace FormSpeed
     // spell_dru_swift_flight_passive gives it.
     constexpr int32 SWIFT_FLIGHT_FORM_310_SPEED = 310;
 
+    // Travel Form and Aquatic Form get the mount speed only where a mount could be used: outdoors,
+    // and out of combat unless OutOfCombatOnly is off.
+    bool MountLike(Player* player)
+    {
+        return !(config.formSpeedOutOfCombatOnly && player->IsInCombat()) && player->IsOutdoors();
+    }
+
     // Travel Form and Aquatic Form keep their own speed (40% / 50%) in combat and indoors, since a
     // mount can't be used there either. Outdoors and out of combat they get the ground mount
     // speed, but never less than their own. Spell mods on the form's speed (Glyph of Aquatic
@@ -642,16 +656,52 @@ namespace FormSpeed
         SpellEffectInfo const& info = effect->GetSpellInfo()->Effects[effect->GetEffIndex()];
         int32 const stockSpeed = info.CalcValue();
         int32 const bonus = info.CalcValue(player) - stockSpeed;
-        bool const scaled = !(config.formSpeedOutOfCombatOnly && player->IsInCombat()) && player->IsOutdoors();
-        return (scaled ? std::max(stockSpeed, Ground(player)) : stockSpeed) + bonus;
+        return (MountLike(player) ? std::max(stockSpeed, Ground(player)) : stockSpeed) + bonus;
+    }
+
+    // The product of the druid's bonuses of one speed aura type, leaving out any slows of it.
+    float Multiplier(Player* player, AuraType auraType)
+    {
+        return player->GetTotalAuraMultiplier(auraType, [](AuraEffect const* effect) { return effect->GetAmount() > 0; });
+    }
+
+    // A speed with a multiplier on top: 100% faster times 1.1 is 120% faster.
+    int32 Multiplied(int32 speed, float multiplier)
+    {
+        return int32(std::lround((100.0f + speed) * multiplier)) - 100;
+    }
+
+    // Set a speed effect's amount and send the new speed once. ChangeAmount would do both too, but
+    // it takes the effect off first and sends that in-between speed as well, so every new
+    // Plainsrunning stack would flash the druid back to plain run or flight speed.
+    void SetSpeed(Player* player, AuraEffect* effect, UnitMoveType moveType, int32 speed)
+    {
+        if (speed <= 0 || speed == effect->GetAmount())
+            return;
+
+        effect->SetAmount(speed);
+        player->UpdateSpeed(moveType, true);
+        sScriptMgr->AnticheatSetUnderACKmount(player); // as the core's speed aura handlers do
     }
 
     // Set the speed effects of one of the form passives. Runs after the aura is applied, so it
-    // comes after the core's spell_dru_swift_flight_passive. ChangeAmount updates the speed at
-    // once.
+    // comes after the core's spell_dru_swift_flight_passive.
+    //
+    // Speed bonuses multiply, as the core does it. Two kinds are added here, because the core
+    // leaves them out of these forms:
+    // - Run speed bonuses that stack with everything (SPELL_AURA_MOD_SPEED_ALWAYS: Plainsrunning,
+    //   Quickness, Drums of Speed). The core multiplies them into run speed, so they already work
+    //   on the ground in every form, but it has no swimming one and reads the flying one wrongly
+    //   for players. Aquatic Form's swim speed and the flight forms' flying speed get them here.
+    // - Mount speed bonuses that stack (SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS and its flying twin:
+    //   the guild perk Mount Up, Mithril Spurs, Carrot on a Stick). The core only gives them to
+    //   mounts; the travel forms take a mount's place, so Travel Form (where a mount could be
+    //   used) and the flight forms get them too. In the air the core already gives the forms the
+    //   best "not stacking" flight bonus (Crusader Aura); as on a mount, the stacking ones count
+    //   only when they're bigger, and then only by how much bigger.
     void Apply(Player* player, Aura* aura)
     {
-        if (!config.formSpeedEnabled || !mountScaling.enabled)
+        if (!config.formSpeedEnabled)
             return;
 
         for (uint8 i = EFFECT_0; i <= EFFECT_1; ++i)
@@ -660,29 +710,55 @@ namespace FormSpeed
             if (!effect)
                 continue;
 
-            int32 speed = 0;
-            if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_SPEED)
-                speed = aura->GetId() == SPELL_TRAVEL_FORM_PASSIVE ? TravelSpeed(player, effect) : Ground(player);
-            else if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_SWIM_SPEED)
-                speed = TravelSpeed(player, effect);
-            else if (effect->GetAuraType() == SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED)
+            int32 const stockSpeed = effect->GetSpellInfo()->Effects[i].CalcValue(player);
+            switch (effect->GetAuraType())
             {
-                speed = Flight(player);
+                case SPELL_AURA_MOD_INCREASE_SPEED:
+                {
+                    float const mountBonus = Multiplier(player, SPELL_AURA_MOD_MOUNTED_SPEED_ALWAYS);
+                    int32 speed = stockSpeed;
+                    if (aura->GetId() == SPELL_TRAVEL_FORM_PASSIVE)
+                    {
+                        if (MountLike(player))
+                            speed = Multiplied(TravelSpeed(player, effect), mountBonus);
+                    }
+                    else
+                    {
+                        int32 const ground = Ground(player);
+                        speed = Multiplied(ground > 0 ? ground : stockSpeed, mountBonus);
+                    }
+                    SetSpeed(player, effect, MOVE_RUN, speed);
+                    break;
+                }
+                case SPELL_AURA_MOD_INCREASE_SWIM_SPEED:
+                    SetSpeed(player, effect, MOVE_SWIM, Multiplied(TravelSpeed(player, effect), Multiplier(player, SPELL_AURA_MOD_SPEED_ALWAYS)));
+                    break;
+                case SPELL_AURA_MOD_INCREASE_FLIGHT_SPEED:
+                {
+                    int32 const flight = Flight(player);
+                    int32 speed = flight > 0 ? flight : stockSpeed;
 
-                // A druid with a 310% mount keeps a 310% Swift Flight Form at every level: the
-                // scaling never takes that away.
-                if (aura->GetId() == SPELL_SWIFT_FLIGHT_FORM_PASSIVE && player->Has310Flyer(false))
-                    speed = std::max(speed, SWIFT_FLIGHT_FORM_310_SPEED);
+                    // A druid with a 310% mount keeps a 310% Swift Flight Form at every level: the
+                    // scaling never takes that away.
+                    if (aura->GetId() == SPELL_SWIFT_FLIGHT_FORM_PASSIVE && player->Has310Flyer(false))
+                        speed = std::max(speed, SWIFT_FLIGHT_FORM_310_SPEED);
+
+                    float const runBonus = Multiplier(player, SPELL_AURA_MOD_SPEED_ALWAYS);
+                    float const notStacking = 1.0f + player->GetMaxPositiveAuraModifier(SPELL_AURA_MOD_FLIGHT_SPEED_NOT_STACKING) / 100.0f;
+                    float const mountBonus = std::max(1.0f, Multiplier(player, SPELL_AURA_MOD_MOUNTED_FLIGHT_SPEED_ALWAYS) / notStacking);
+                    SetSpeed(player, effect, MOVE_FLIGHT, Multiplied(speed, runBonus * mountBonus));
+                    break;
+                }
+                default:
+                    break;
             }
-
-            if (speed > 0 && speed != effect->GetAmount())
-                effect->ChangeAmount(speed);
         }
     }
 
-    // After a level up, entering or leaving combat, or walking indoors or outdoors, for a druid
-    // who is in a travel form right now. Other changes (a new riding skill, a config reload) take effect the next time they
-    // shift.
+    // For a druid who is in a travel form right now: after a level up, entering or leaving combat,
+    // and on every update, which catches walking indoors or outdoors and speed bonuses coming and
+    // going (Plainsrunning's stacks, Mount Up). A new riding skill or a config reload takes
+    // effect the next time they shift.
     void Update(Player* player)
     {
         for (uint32 spellId : { SPELL_TRAVEL_FORM_PASSIVE, SPELL_AQUATIC_FORM_PASSIVE, SPELL_FLIGHT_FORM_PASSIVE,
@@ -1074,9 +1150,9 @@ public:
         CatComboPoints::OnSpellCast(player, spell);
     }
 
-    // Walking into or out of a building. The core keeps IsOutdoors() up to date as the player
-    // moves, and FormSpeed only changes the aura when the speed differs, so checking every update
-    // is cheap.
+    // Walking into or out of a building, and speed bonuses coming and going (Plainsrunning's
+    // stacks, Mount Up). The core keeps IsOutdoors() up to date as the player moves, and FormSpeed
+    // only changes the aura when the speed differs, so checking every update is cheap.
     void OnPlayerUpdate(Player* player, uint32 diff) override
     {
         CatComboPoints::OnUpdate(player, diff);
