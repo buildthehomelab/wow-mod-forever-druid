@@ -9,7 +9,8 @@ bear tanking to a 3.3.5 server:
 - **Pulverize**, Cataclysm's bear finisher, at level 42, and **Lacerate moves to level 42** to
   go with it.
 - **Travel, Aquatic and flight forms follow [mod-mount-scaling](https://github.com/buildthehomelab/wow-mod-mount-scaling)**
-  when that module is installed.
+  when that module is installed, and get the speed bonuses a mount would (Mount Up, Mithril Spurs),
+  plus Plainsrunning and the other stacking run speed bonuses while swimming and flying.
 - **Travel Form works indoors**: it can be cast inside, and walking into a building no longer
   cancels it.
 - **Consumables work in Cat Form and Bear Form**, including the stat scrolls and other items the
@@ -96,7 +97,8 @@ else in the game:
 |---|---|---|
 | Run speed bonuses that stack: Plainsrunning (mod-forever-racials), Quickness, Drums of Speed | on foot and in every form, on the ground only | also Aquatic Form's swimming and the flight forms' flying |
 | Mount speed bonuses that stack: Mount Up (mod-guild-levels), Mithril Spurs, Carrot on a Stick, the riding glove enchant | mounts only | also Travel Form (outdoors and out of combat, where it gets the mount speed) and the flight forms |
-| Crusader Aura, Riding Crop | mounts and flight forms in the air | unchanged |
+| Crusader Aura | mounts, and flight forms in the air | unchanged |
+| Riding Crop | mounts only | unchanged |
 
 For example a level 60 Tauren in Travel Form with 100% speed, Mount Up and full Plainsrunning goes
 2.0 × 1.1 × 1.1 = 2.42 times run speed. In the air, Crusader Aura and the stacking mount bonuses
@@ -362,7 +364,8 @@ folder.
 - **The new names and tooltips don't appear after a patch change:** players delete their `Cache/`
   folder.
 - **Travel and flight forms keep their stock speed:** mod-mount-scaling isn't installed or has
-  `MountScaling.Enable = 0`, or `ForeverDruid.FormSpeed.Enable = 0`.
+  `MountScaling.Enable = 0` (speed bonuses still apply), or `ForeverDruid.FormSpeed.Enable = 0`
+  (no speed bonuses in forms either).
 - **The Crowd Pummeler settings don't change anything:** they need a worldserver restart, not
   `.reload config`.
 
